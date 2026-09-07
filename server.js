@@ -2139,6 +2139,12 @@ app.get('/wishlist', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'dashboard.html'));
 });
 
+// A wardrobe (or wishlist) piece as its own page — the client opens the
+// record once the wardrobe has loaded (Robes_Piece_IA, 2026-09-07)
+app.get('/piece/:id', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'dashboard.html'));
+});
+
 app.get('/lookbook', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'dashboard.html'));
 });
