@@ -277,22 +277,81 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
     }, expInvites[0]);
     check('list · the invitation\'s + offers Add a look / Add a travel edit, dated to that day',
       JSON.stringify(menu.opts) === JSON.stringify(['Add a look', 'Add a travel edit']) && menu.picker && menu.dated, JSON.stringify(menu));
-    // Naming a bare day is the standing rule: her words go to the prompt, scoped to the date
+    // Naming a bare day KEEPS the name in place (Annie, 2026-09-08): a 'day'
+    // row is written, the invitation becomes a named card, and the look she
+    // adds afterwards inherits the name.
+    const namedBefore = writes.length;
     const named = await page.evaluate(async (d) => {
       const inp = document.querySelector('#sn-cal .dy-row[data-date="' + d + '"] .dy-inv-in input');
       inp.value = 'Dinner with mum';
       inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 900));
+      const row = document.querySelector('#sn-cal .dy-row[data-date="' + d + '"]');
       return {
-        diaryClosed: document.getElementById('sn-page')?.style.display === 'none',
-        prompt: document.getElementById('cb-ta')?.value,
-        chip: document.getElementById('rb-scopechip')?.textContent || '',
-        path: location.pathname,
+        diaryOpen: document.getElementById('sn-page')?.style.display === 'block',
+        card: !!row?.querySelector('.dy-card'),
+        title: row?.querySelector('.dy-card-h h3')?.textContent,
+        pen: !!row?.querySelector('.dy-pen'),
+        looks: row?.querySelectorAll('.dy-look').length,
+        add: row?.querySelector('.dy-addlook')?.textContent.trim(),
+        invitesLeft: document.querySelectorAll('#sn-cal .dy-invite').length,
+        prompt: document.getElementById('cb-ta')?.value || '',
       };
     }, expInvites[0]);
-    check('list · naming a bare day lands her words in the prompt, scoped to that day',
-      named.diaryClosed && named.prompt === 'Dinner with mum' && named.chip.length > 0 && named.path === '/dashboard', JSON.stringify(named));
+    const dayWrite = writes.slice(namedBefore).find((w) => w.method === 'POST' && /^planned_days/.test(w.url) && Array.isArray(w.body) && w.body[0]?.source_type === 'day');
+    check('list · naming a bare day keeps the name in place — a named card with + Add a look, the Diary still open, nothing sent to the prompt',
+      named.diaryOpen && named.card && named.title === 'Dinner with mum' && named.pen && named.looks === 0 && named.add === 'Add a look'
+        && named.invitesLeft === expInvites.length - 1 && named.prompt === '', JSON.stringify(named));
+    check('list · the name has a data home: one planned_days row of its own source (day:<date>)',
+      !!dayWrite && dayWrite.body[0].source_id === 'day:' + expInvites[0] && dayWrite.body[0].day_date === expInvites[0]
+        && dayWrite.body[0].activity === 'Dinner with mum' && dayWrite.body[0].status === 'planned', JSON.stringify(dayWrite?.body?.[0] || null));
+    // Renaming the named day in place rewrites the same row; emptying it removes the day
+    const renamedDay = await page.evaluate(async (d) => {
+      const row = document.querySelector('#sn-cal .dy-row[data-date="' + d + '"]');
+      row?.querySelector('.dy-pen')?.click();
+      await new Promise((r) => setTimeout(r, 120));
+      const inp = document.getElementById('dy-name-in');
+      if (!inp) return { inp: false };
+      inp.value = 'Supper with mum';
+      inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await new Promise((r) => setTimeout(r, 300));
+      return { inp: true, shown: document.querySelector('#sn-cal .dy-row[data-date="' + d + '"] .dy-card-h h3')?.textContent };
+    }, expInvites[0]);
+    check('list · a named day renames in place through the one rename path', renamedDay.inp && renamedDay.shown === 'Supper with mum', JSON.stringify(renamedDay));
   }
+    // The look she adds to the named day inherits the name
+    const pinBefore = writes.length;
+    const inherit = await page.evaluate(async (d) => {
+      document.querySelector('#sn-cal .dy-row[data-date="' + d + '"] .dy-addlook').click();
+      await new Promise((r) => setTimeout(r, 200));
+      const m = document.getElementById('rb-mv-wear');
+      const head = m?.querySelector('#rb-mv-wear-ttl')?.textContent || '';
+      window.__mvWearPick(d, 'lk-1');
+      await new Promise((r) => setTimeout(r, 1200));
+      return { head, modalGone: !document.getElementById('rb-mv-wear') };
+    }, expInvites[0]);
+    const pin = writes.slice(pinBefore).find((w) => w.method === 'POST' && /^planned_days/.test(w.url) && Array.isArray(w.body) && w.body[0]?.source_type === 'look');
+    check('list · the picker is headed by her name, and the pinned look carries it as the day\'s title',
+      /Supper with mum/.test(inherit.head) && inherit.modalGone && !!pin && pin.body[0].day_date === expInvites[0] && pin.body[0].activity === 'Supper with mum',
+      JSON.stringify([inherit, pin?.body?.[0] || null]));
+  // The prompt's + menu offers the travel edit too (home)
+  const promptMenu = await page.evaluate(async () => {
+    window.__rbNavGo('home');
+    await new Promise((r) => setTimeout(r, 400));
+    const opt = document.getElementById('cb-addopt-tv');
+    const labels = Array.from(document.querySelectorAll('#cb-addmenu .hp-addopt')).map((b) => (b.querySelector('span span') || b).textContent.trim());
+    opt && opt.click();
+    await new Promise((r) => setTimeout(r, 200));
+    const modal = document.getElementById('tv-brief-modal');
+    const r = { had: !!opt, labels, intake: !!modal, sub: /Where are we packing for\?/.test(opt?.textContent || '') };
+    modal?.remove();
+    return r;
+  });
+  check('prompt · the + menu carries Add a travel edit after Add a look, and it opens the intake',
+    promptMenu.had && promptMenu.sub && promptMenu.intake && promptMenu.labels.indexOf('Add a travel edit') === promptMenu.labels.indexOf('Add a look') + 1,
+    JSON.stringify(promptMenu));
+  await page.evaluate(() => window.__rbNavGo('diary'));
+  await page.waitForTimeout(500);
   // Month is one toggle away, remembered per device
   await page.evaluate(() => window.__rbNavGo('diary'));
   await page.waitForTimeout(500);

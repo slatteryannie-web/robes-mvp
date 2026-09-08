@@ -4450,6 +4450,28 @@
         if (it.type === 'travel-edit' && it.tvData) _pdSync('travel', id, it.tvData);
         else if (it.type === 'daily-look' && it.dlData) _pdSync('daily', id, it.dlData);
       }
+      // A named day with no plan behind it (Diary IA follow-up, Annie
+      // 2026-09-08: "leave a named day as a typed name in place — it can be
+      // used to plan a week before adding outfits"). Its data home is a
+      // planned_days row of its OWN source — source_type 'day', source_id
+      // 'day:<date>', one 'day' slot — no migration (source_type is free
+      // text, source_id has no FK). It sits at the bottom tier, so any plan
+      // that later lands on the date outranks it at read time, and the
+      // name resurfaces if that plan leaves. An empty name deletes the row.
+      function _pdDayName(date, v) {
+        v = String(v || '').trim().slice(0, 60);
+        const sid = 'day:' + date;
+        if (_pdDown || !date || !_waUid() || !_waToken()) return false;
+        if (!v) { _pdDeleteSource(sid); return true; }
+        const row = { user_id: _waUid(), source_type: 'day', source_id: sid, day_index: 0, slot: 'day', day_date: date,
+          status: 'planned', activity: v, headline: null, thumb_urls: [], item_ids: [], pinned: false };
+        _pdWrite({ rows: [row], totalDays: 1 }, sid);
+        return true;
+      }
+      function _pdDayRow(date, v) {
+        return { user_id: _waUid(), source_type: 'day', source_id: 'day:' + date, day_index: 0, slot: 'day', day_date: date,
+          status: 'planned', activity: v, headline: null, thumb_urls: [], item_ids: [], pinned: false, updated_at: new Date().toISOString() };
+      }
       function _pdDeleteSource(sourceId) {
         if (_pdDown || !_waUid() || sourceId == null) return;
         clearTimeout(_pdTimers[sourceId]);
@@ -8591,8 +8613,11 @@
         moments = moments || [];
         const tv = moments.find(m => m && m.source_type === 'travel');
         if (tv) return tv;
-        const day = moments.find(m => m && (m.slot || 'day') === 'day') || moments[0];
+        const day = moments.find(m => m && (m.slot || 'day') === 'day' && m.source_type !== 'day') || moments.find(m => m && m.source_type !== 'day');
         if (day && day.status !== 'free' && (day.source_type === 'daily' || day.source_type === 'look')) return day;
+        // A named day — the name IS the row (source 'day')
+        const dn = moments.find(m => m && m.source_type === 'day');
+        if (dn) return dn;
         return null;
       }
       function _rbDayRename(m, v) {
@@ -8617,7 +8642,13 @@
             // can't clear here, it just keeps the standing name.
             if (!v || typeof _lkPin !== 'function') return false;
             _lkPin(m.source_id, m.day_date, v);
+          } else if (m.source_type === 'day') {
+            if (!_pdDayName(m.day_date, v)) return false;
           } else return false;
+          // A plan renamed on a date that also holds a typed name keeps the
+          // two in step, so the name that resurfaces when the plan leaves
+          // is the one she last wrote.
+          if (m.source_type !== 'day' && v && typeof window._rbDayNamed === 'function' && window._rbDayNamed(m.day_date)) _pdDayName(m.day_date, v);
           // Reflect her words in the row in hand — the debounced index
           // write follows; a repaint from cache must not lose the name.
           m.activity = v || null;
@@ -18815,6 +18846,17 @@ body>*:not(#tv-result-page){display:none !important}
           lkOpt.onclick = function() { window.__cbLookPick && window.__cbLookPick(); };
           addMenu.appendChild(lkOpt);
         }
+        // "Add a travel edit" joins it (Annie, 2026-09-08): the where/when/
+        // vibe intake from the prompt's own door — the trip files itself
+        // into the Diary on those dates.
+        if (addMenu && !document.getElementById('cb-addopt-tv')) {
+          const tvOpt = document.createElement('button');
+          tvOpt.id = 'cb-addopt-tv';
+          tvOpt.className = 'hp-addopt';
+          tvOpt.innerHTML = `<svg viewBox="0 0 24 24"><path d="M2.5 13l19-6.5-3.2 5.4-5.8 2.1-3.4 6.5-2.1-5.8z"></path></svg><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.25"><span>Add a travel edit</span><span style="font-family:'Cormorant',Georgia,serif;font-style:italic;font-size:11px;color:var(--ink-faint)">Where are we packing for?</span></span>`;
+          tvOpt.onclick = function() { addMenu.classList.remove('open'); window.__lkNewHoliday && window.__lkNewHoliday(); };
+          addMenu.appendChild(tvOpt);
+        }
       }, 1000);
       document.addEventListener('click', function(e) {
         if (!e.target || !e.target.closest || !e.target.closest('#cb-add-btn')) return;
@@ -19886,6 +19928,7 @@ body>*:not(#tv-result-page){display:none !important}
         // One glanceable fact, not a description: the destination for a
         // trip, the week's start for a plan, "Daily look" for a one-off.
         function srcFact(m) {
+          if (m.source_type === 'day') return 'Planned';
           const it = snLoad().find(x => String(x.id) === String(m.source_id));
           if (m.source_type === 'travel') {
             const dest = it && it.tvData && it.tvData.destination;
@@ -20172,6 +20215,9 @@ body>*:not(#tv-result-page){display:none !important}
         // (§6.4: a day is one identity; three openers is how they drift).
         window._rbOpenPlannedDay = function(m) {
           if (!m) return;
+          // A named day with nothing on it yet: opening it is adding the
+          // look (the shared picker, headed by her name for the day).
+          if (m.source_type === 'day') { if (window.__mvWear) window.__mvWear(m.day_date); return; }
           // A pinned Look opens AS THE DAY — the Daily console hosting the
           // look with date + weather context (__lkOpenAsDay), never a bounce
           // to the wardrobe's Look detail (source_id is a looks uuid, never
@@ -20914,31 +20960,27 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           const v = (inp && inp.value) || '';
           const m = _dyNameTarget;
           _dyNaming = null; _dyNameTarget = null;
-          if (m && _rbDayRename(m, v) && !String(v).trim() && m.source_type === 'travel') m.status = 'free';
+          if (m && _rbDayRename(m, v)) {
+            if (!String(v).trim() && m.source_type === 'travel') m.status = 'free';
+            // An emptied name on a named day removes the day (the row is gone)
+            if (!String(v).trim() && m.source_type === 'day') _mvRows = (_mvRows || []).filter(r => r !== m);
+          }
           _rbDayRepaints();
         };
+        window._rbDayNamed = function(date) { return (_mvRows || []).some(r => r.day_date === date && r.source_type === 'day'); };
         window.__dyInviteKey = function(e, date) {
           if (e.key !== 'Enter') return;
           e.preventDefault();
-          const v = String(e.target.value || '').trim();
+          const v = String(e.target.value || '').trim().slice(0, 60);
           if (!v) return;
-          // Naming a bare day IS typing the plan into the prompt (the
-          // standing rule, 2026-08-14): leave the Diary with her words in
-          // the prompt, scoped to the date, ready to send.
+          // The name stays in place (Annie, 2026-09-08 — a week can be
+          // planned before any outfit exists): a 'day' row is written and
+          // the invitation becomes a named card with + Add a look. The
+          // look she adds later inherits the name.
           _rbTrack('diary_day_named', { source: 'list' });
-          if (window.__snClose) window.__snClose();
-          const ta = document.getElementById('cb-ta');
-          if (typeof _rbDiaryOn === 'function' && _rbDiaryOn() && typeof window._ikScopeDay === 'function') {
-            window._ikScopeDay(date);
-          } else if (ta) {
-            _cbAnchorDate = date; _cbIntent = 'dress-me';
-          }
-          if (ta) {
-            ta.value = v;
-            ta.dispatchEvent(new Event('input'));
-            if (typeof _cbAutoGrow === 'function') _cbAutoGrow(ta);
-            setTimeout(() => { ta.focus(); ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
-          }
+          if (!_pdDayName(date, v)) { _waShowToast('Robes couldn’t keep that name — try again shortly'); return; }
+          _mvRows = (_mvRows || []).filter(r => !(r.day_date === date && r.source_type === 'day')).concat([_pdDayRow(date, v)]);
+          _rbDayRepaints();
         };
 
         // Tapping a cell opens the day console at that date; tapping a
@@ -21020,8 +21062,12 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           document.getElementById('rb-mv-wear')?.remove();
           const pageOpen = snPage && snPage.style.display !== 'none';
           if (pageOpen && window.__rbNavGo) window.__rbNavGo('home');
+          const title = (_mvWearCtx && _mvWearCtx.date === date && _mvWearCtx.title) || '';
           setTimeout(() => {
             if (typeof window._ikScopeDay === 'function') window._ikScopeDay(date, null);
+            // Her name for the day is the brief — it lands in the prompt
+            const ta = document.getElementById('cb-ta');
+            if (ta && title && !ta.value.trim()) { ta.value = title; ta.dispatchEvent(new Event('input')); if (typeof _cbAutoGrow === 'function') _cbAutoGrow(ta); }
             _rbTrack('day_robes_door', { date });
           }, pageOpen ? 340 : 0);
         };
@@ -21056,7 +21102,8 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           document.getElementById('rb-mv-wear')?.remove();
           const l = (typeof _lkFind === 'function') ? _lkFind(id) : null;
           if (!l || typeof _lkPin !== 'function') return;
-          _lkPin(l.id, date);
+          // A named day hands its name to the look it now wears
+          _lkPin(l.id, date, (_mvWearCtx && _mvWearCtx.date === date && _mvWearCtx.title) || undefined);
           _rbTrack('look_worn_from_calendar', { look: String(l.id) });
           _waShowToast('“' + (l.name || 'Your look') + '” — wearing it ' + _lkFmt(date));
           _mvLoad();
