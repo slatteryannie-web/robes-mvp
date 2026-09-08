@@ -6487,6 +6487,13 @@
       // nothing for its changes to be local TO.
       let _dlDayBase = null;      // {lookId, ids:[…]}
       let _dlAsked = false;       // the one question, asked once per day (rule 06)
+      // A day wearing its saved look UNTOUCHED holds the look as saved
+      // (Annie, 2026-09-08: "the day should hold a saved view of the look
+      // while retaining the header") — the console returns the moment she
+      // asks to adjust the day (_dlDayEdit) or a change stands. _dlLookView
+      // is the You / Model switch on that saved view.
+      var _dlDayEdit = false;
+      var _dlLookView = null;
       let _dlKeepAsked = false;   // audit 5.3: the keep ask on leaving, once per fresh look
       let _dlKeepArmed = null;    // the data object the keep ask is armed for (fresh generations only)
       function _dlDayChanges() {
@@ -6501,6 +6508,65 @@
         const altered = flat.filter(it => !it.wardrobe_match && _dlAltered(it)).length;
         return { n: Math.max(added.length, gone.length) + altered, added, gone };
       }
+      // The saved view of the look on a day: the look page's own panel
+      // (_lkLookPanelHtml — her photograph / the render / the board) with
+      // the day's switcher under its head and Share as its action, and
+      // the look page's READING rack (each row carrying the piece's wear
+      // count) under the day's verbs — Wore it, Adjust this day, Restyle.
+      // Nothing here edits: Adjust this day opens the console, where every
+      // change is local to the day (rules 05/06) exactly as before.
+      function _dlSavedViewHtml(l, o) {
+        // The look page's own dress — a diary day can open on a dashboard
+        // where the Lookbook never painted, so the sheet is injected here.
+        _lkEnsureCss();
+        _rbcEnsureCss();
+        try { document.body.classList.add('rb-lookv2'); } catch (_) {}
+        const items = _lkDetailItems(l, { saved: true });
+        const ids = _lkPieceIds(l);
+        const props = Array.isArray(l.proposals) ? l.proposals : [];
+        const dPhoto = props.length ? null : _pdHttp(l.photo_url);
+        const dView = _dlLookView || (dPhoto ? 'photo' : 'model');
+        const viewRow = dPhoto
+          ? '<div class="rb-lk-viewrow"><div class="rb-lkm-seg" role="group" aria-label="Look view">' +
+              '<button type="button"' + (dView === 'photo' ? ' class="on"' : '') + ' onclick="window.__dlLookView(\'photo\')">You</button>' +
+              '<button type="button"' + (dView === 'photo' ? '' : ' class="on"') + ' onclick="window.__dlLookView(\'model\')">Model</button></div>' +
+              '<span class="note">Kept as the record of this look</span></div>'
+          : '';
+        const lookHtml = _lkLookPanelHtml(l, {
+          items, ids, props, dirty: 0, dPhoto, dView, acts: '',
+          tail: (o.tagsHtml || '') + viewRow,
+          occHtml: o.occHtml || '',
+          actionHtml: o.actionHtml || '',
+        });
+        const rackItems = items.map(it => Object.assign({}, it, {
+          count: { cur: 0, len: 1 },
+          thirdHtml: it.owned ? '<span class="rbc-wears">' + _lkN(it.wearCount || 0, 'wear') + '</span>' : '',
+        }));
+        const rackHtml = '<div class="rbc-rackhead"><div style="min-width:0"><span class="ey">' + (o.rackLabel || 'The rack') + '</span></div>' +
+          '<div class="rbc-hbtns">' + (o.headButtonsHtml || '') + '</div></div>' +
+          '<div class="rbc-rack">' + _rbRackRolesHtml(rackItems, { onPiece: '__dlLookPieceOpen' }, []) + '</div>';
+        return { lookHtml, rackHtml };
+      }
+      window.__dlLookPieceOpen = function(idx) {
+        const d = window.__lastDlData;
+        const l = d && d.look_id && typeof _lkFind === 'function' ? _lkFind(d.look_id) : null;
+        if (!l) return;
+        const items = _lkDetailItems(l, { saved: true });
+        const it = items[idx];
+        if (!it || it.pieceId == null) return;
+        window.__rbPieceOpen(it.pieceId, { from: 'look', lookName: l.name || 'Saved look',
+          siblings: items.filter(x => x.pieceId != null).map(x => String(x.pieceId)) });
+      };
+      window.__dlLookView = function(which) {
+        _dlLookView = which === 'photo' ? 'photo' : 'model';
+        _dlRerender();
+      };
+      // The door from the saved view into the day's console.
+      window.__dlDayEdit = function() {
+        _dlDayEdit = true;
+        _dlRerender();
+        _rbTrack('day_adjust_opened', {});
+      };
       // The pieces actually on the body today — what a wear records (1c).
       function _dlWornIds() {
         return (window.__dlCurrentItems || [])
@@ -9608,7 +9674,7 @@
 /* Once her photograph exists: the You / Model switch inside the card,
    with what it is for beside it. */
 .rb-lk-viewrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:0.5px solid var(--rule)}
-.rb-lookv2 .rb-lk-viewrow{order:9}
+.rb-lookv2 .rb-lk-viewrow{order:7}
 .rb-lk-viewrow .note{font-size:11px;line-height:1.3;color:var(--ink-faint);text-align:right}
 .rb-lk-photonote{margin-top:14px;font-family:var(--font-serif);font-style:italic;font-size:13px;line-height:1.35;color:var(--ink-soft)}
 .rb-lk-rackhead{display:flex;align-items:center;gap:14px;margin:0 0 12px}
@@ -10320,9 +10386,11 @@ button.rb-lk-live{cursor:pointer}
       // and its rack rows are the SAME components every generated console
       // uses (UX review, 2026-07-30: the detail was drawing a look in a
       // language the app retired on 22 Jul).
-      function _lkDetailItems(l) {
+      function _lkDetailItems(l, o) {
         // Draft-first: mid-edit the page draws what she is making, live.
-        const entries = _lkDraftPieces(l);
+        // o.saved reads the look AS SAVED — a day wearing the look must
+        // never pick up a draft left open on the look page.
+        const entries = (o && o.saved) ? (l.pieces || []) : _lkDraftPieces(l);
         return entries.map(p => p.id).map((id, idx) => {
           const wi = _waItems.find(w => String(w.id) === String(id));
           const slot = (entries[idx] || {}).slot || (wi && wi.category) || 'Piece';
@@ -10464,6 +10532,97 @@ button.rb-lk-live{cursor:pointer}
             row(' add', '+ Put it in the diary', '', '', 'window.__lkDiaryOpen()') +
           '</div></div>';
       }
+      // The saved look's panel — ONE ladder for every surface that draws
+      // a saved look as saved (the look page, and a day wearing it): her
+      // photograph → the render → her model on a zero-piece look → the
+      // board (which a DIRTY draft always draws — a photograph or render
+      // of the look as saved cannot show the change she just made). Once
+      // her model wears the look, the RENDER leads even on a saved build;
+      // only a true render outranks the build mosaic (a zero-owned build's
+      // photo_url is its lead still, which belongs IN the mosaic).
+      // o: {items, ids, props, dirty, dPhoto, dView, acts, tail,
+      //     occHtml?, actionHtml?} — occHtml sits under the head (a day's
+      // Day/Evening switcher), actionHtml closes the panel (a day's Share).
+      function _lkLookPanelHtml(l, o) {
+        const ids = o.ids, items = o.items, props = o.props || [];
+        const acts = o.acts || '', tail = o.tail || '';
+        const shareBadge = o.actionHtml
+          ? '<button class="rbc-share-m" onclick="window.__rbShare&&window.__rbShare()" aria-label="Share this look"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></button>'
+          : '';
+        const actionHtml = o.actionHtml ? '<div class="rbc-action">' + o.actionHtml + '</div>' : '';
+        const paletteHtml = ids.map(id => {
+          const tone = _ltToneOf(_waItems.find(w => String(w.id) === String(id)));
+          return tone ? '<span style="background:' + _waEsc(tone) + '"></span>' : '';
+        }).join('');
+        const headLabel = 'The look · ' + _lkN(ids.length, 'piece');
+        if (props.length && !_pdHttp(l.render_url)) {
+          const propBoard = props.map((row, i) => {
+            const a = row.opts[row.oi] || {};
+            return {
+              idx: ids.length + i, role: row.role, slot: row.chip,
+              name: a.name || row.chip,
+              shortName: String(a.name || row.chip || 'piece').split(/\s+/).slice(-1)[0].toLowerCase(),
+              owned: false, anchored: false, isNew: true,
+              frame: { pollAttr: '', inner: _lkPropDetailFrame(row) },
+              subHtml: '', noteHtml: '', count: { cur: 0, len: 1 },
+            };
+          });
+          return _rbConsole({
+            boardOnlyItems: items.concat(propBoard),
+            headLabel: 'The look · ' + ids.length + ' yours, ' + props.length + ' to find',
+            occHtml: o.occHtml || '',
+            quoteHtml: l.note ? _waEsc(l.note) : '',
+            paletteHtml,
+            tagsHtml: tail,
+            boardExtraHtml: acts,
+            lookActionHtml: o.actionHtml || '',
+            rackLabel: 'The Rack',
+            onFlip: '__lkDFlip', onSwap: '__lkDSwap',
+          }, items).lookHtml;
+        }
+        if (o.dPhoto && o.dView === 'photo' && !o.dirty) {
+          // Her photograph of the look — the record, with the model a
+          // second view of it (the You / Model switch inside the card).
+          return '<div class="rbc-panel rb-lkm-panel"><div class="rbc-lhead">' +
+            '<span class="lab">' + headLabel + '</span><span class="robes">Robes</span></div>' +
+            (o.occHtml || '') +
+            '<div class="rb-lkm-canvas photo"><div class="rb-lkm-photo"><img src="' + _waEsc(o.dPhoto) + '" alt="Your photograph of ' + _waEsc(l.name) + '"></div>' + acts + shareBadge + '</div>' +
+            (l.note ? '<div class="rbc-quote">' + _waEsc(l.note) + '</div>' : '') +
+            tail + actionHtml +
+            '</div>';
+        }
+        if (_pdHttp(l.render_url) && !o.dirty) {
+          return '<div class="rbc-panel rb-lkm-panel"><div class="rbc-lhead">' +
+            '<span class="lab">' + headLabel + '</span><span class="robes">Robes</span></div>' +
+            (o.occHtml || '') +
+            '<div class="rb-lkm-canvas"><img src="' + _waEsc(_pdHttp(l.render_url)) + '" class="rb-lkm-img" alt="' + _waEsc(l.name) + '">' + acts + shareBadge + '</div>' +
+            (l.note ? '<div class="rbc-quote">' + _waEsc(l.note) + '</div>' : '') +
+            tail + actionHtml +
+            '</div>';
+        }
+        if (!ids.length) {
+          // Saved by name with nothing on the rack (the name is the one
+          // gate, 2026-09-03): her model stands in her basics rather than
+          // an empty board.
+          return _lkModelPanelHtml({
+            saved: true, items: [],
+            headLabel,
+            tailHtml: tail + actionHtml,
+            canvasExtraHtml: acts + shareBadge,
+          });
+        }
+        return _rbConsole({
+          headLabel,
+          occHtml: o.occHtml || '',
+          quoteHtml: l.note ? _waEsc(l.note) : '',
+          paletteHtml,
+          tagsHtml: tail,
+          boardExtraHtml: acts,
+          lookActionHtml: o.actionHtml || '',
+          rackLabel: 'The Rack',
+          onFlip: '__lkDFlip', onSwap: '__lkDSwap',
+        }, items).lookHtml;
+      }
       function _lkDetailHtml() {
         const l = _lkFind(_lkActive);
         if (!l) return _lkEmptyHtml();
@@ -10516,76 +10675,7 @@ button.rb-lk-live{cursor:pointer}
               '<span class="note">' + (_lkDetailPhotoPending ? 'Uploading…' : 'Kept as the record of this look') + '</span></div>'
           : '';
         const panelTail = lkTagsRow + viewRow;
-        const paletteHtml = ids.map(id => {
-          const tone = _ltToneOf(_waItems.find(w => String(w.id) === String(id)));
-          return tone ? '<span style="background:' + _waEsc(tone) + '"></span>' : '';
-        }).join('');
-        let lookPanel;
-        // Once her model wears the look, the RENDER leads even on a saved
-        // build — the rack beneath still carries every proposal. Only a
-        // true render outranks the build mosaic: a zero-owned build's
-        // photo_url is its lead still, which belongs IN the mosaic.
-        // A DIRTY draft always draws the board — a photograph or a render
-        // of the look as saved cannot show the change she just made.
-        if (props.length && !_pdHttp(l.render_url)) {
-          const propBoard = props.map((row, i) => {
-            const a = row.opts[row.oi] || {};
-            return {
-              idx: ids.length + i, role: row.role, slot: row.chip,
-              name: a.name || row.chip,
-              shortName: String(a.name || row.chip || 'piece').split(/\s+/).slice(-1)[0].toLowerCase(),
-              owned: false, anchored: false, isNew: true,
-              frame: { pollAttr: '', inner: _lkPropDetailFrame(row) },
-              subHtml: '', noteHtml: '', count: { cur: 0, len: 1 },
-            };
-          });
-          lookPanel = _rbConsole({
-            boardOnlyItems: items.concat(propBoard),
-            headLabel: 'The look · ' + ids.length + ' yours, ' + props.length + ' to find',
-            quoteHtml: l.note ? _waEsc(l.note) : '',
-            paletteHtml,
-            tagsHtml: panelTail,
-            boardExtraHtml: acts,
-            rackLabel: 'The Rack',
-            onFlip: '__lkDFlip', onSwap: '__lkDSwap',
-          }, items).lookHtml;
-        } else if (dPhoto && dView === 'photo' && !dirty) {
-          // Her photograph of the look — the record, with the model a
-          // second view of it (the You / Model switch inside the card).
-          lookPanel = '<div class="rbc-panel rb-lkm-panel"><div class="rbc-lhead">' +
-            '<span class="lab">The look · ' + _lkN(ids.length, 'piece') + '</span><span class="robes">Robes</span></div>' +
-            '<div class="rb-lkm-canvas photo"><div class="rb-lkm-photo"><img src="' + _waEsc(dPhoto) + '" alt="Your photograph of ' + _waEsc(l.name) + '"></div>' + acts + '</div>' +
-            (l.note ? '<div class="rbc-quote">' + _waEsc(l.note) + '</div>' : '') +
-            panelTail +
-            '</div>';
-        } else if (_pdHttp(l.render_url) && !dirty) {
-          lookPanel = '<div class="rbc-panel rb-lkm-panel"><div class="rbc-lhead">' +
-            '<span class="lab">The look · ' + _lkN(ids.length, 'piece') + '</span><span class="robes">Robes</span></div>' +
-            '<div class="rb-lkm-canvas"><img src="' + _waEsc(_pdHttp(l.render_url)) + '" class="rb-lkm-img" alt="' + _waEsc(l.name) + '">' + acts + '</div>' +
-            (l.note ? '<div class="rbc-quote">' + _waEsc(l.note) + '</div>' : '') +
-            panelTail +
-            '</div>';
-        } else if (!ids.length) {
-          // Saved by name with nothing on the rack (the name is the one
-          // gate, 2026-09-03): her model stands in her basics rather than
-          // an empty board.
-          lookPanel = _lkModelPanelHtml({
-            saved: true, items: [],
-            headLabel: 'The look · ' + _lkN(ids.length, 'piece'),
-            tailHtml: panelTail,
-            canvasExtraHtml: acts,
-          });
-        } else {
-          lookPanel = _rbConsole({
-            headLabel: 'The look · ' + _lkN(ids.length, 'piece'),
-            quoteHtml: l.note ? _waEsc(l.note) : '',
-            paletteHtml,
-            tagsHtml: panelTail,
-            boardExtraHtml: acts,
-            rackLabel: 'The Rack',
-            onFlip: '__lkDFlip', onSwap: '__lkDSwap',
-          }, items).lookHtml;
-        }
+        const lookPanel = _lkLookPanelHtml(l, { items, ids, props, dirty, dPhoto, dView, acts, tail: panelTail });
 
         // The masthead: back to the door she came through (the chevron
         // names the previous step — Lookbook, the day, the travel edit,
@@ -13425,7 +13515,7 @@ button.rb-lk-live{cursor:pointer}
         const data = window.__lastDlData;
         if (!data) return;
         const sc = dlResultPage ? dlResultPage.scrollTop : 0;
-        window.__dlRenderResult(data, window.__lastDlPrompt || data.prompt || '', { skipSave: true, savedId: _dlActiveSaveId, keepScroll: sc });
+        window.__dlRenderResult(data, window.__lastDlPrompt || data.prompt || '', { skipSave: true, savedId: _dlActiveSaveId, keepScroll: sc, rerender: true });
         _dlPatchSaved();
       }
       // ── Day/Evening on the daily track (evening rules 2026-07-24) —
@@ -13939,6 +14029,7 @@ button.rb-lk-live{cursor:pointer}
         if (!items.length) return;
         d.steps = [{ title: '', items }];
         _dlAsked = false;
+        _dlDayEdit = false;
         _dlRerender();
         _waShowToast('Back to ' + base.name);
       };
@@ -14271,6 +14362,9 @@ button.rb-lk-live{cursor:pointer}
           _dlAsked = false;
         }
         const dayChg = _dlDayChanges();
+        // A fresh open (anything but a rerender of the same data) lands on
+        // the saved view again, photo first.
+        if (!(opts && opts.rerender)) { _dlDayEdit = false; _dlLookView = null; }
 
         // A look built from a styled key piece keeps a route back to its
         // three-ways page — origin flags are stamped by __dlSubmit and ride
@@ -14423,6 +14517,24 @@ button.rb-lk-live{cursor:pointer}
           actionKeep: dlLooseUnkept,
           shareBadge: !dlLooseUnkept,
         }, conItems);
+        // THE SAVED VIEW — a day wearing its saved look, untouched, holds
+        // the look as it reads on its own page; the header above stays the
+        // day's (date, its name, the weather, the door to the look). The
+        // console (flick / swap / anchor, the local-change machinery of
+        // rules 05/06) is one tap away behind Adjust this day, and returns
+        // by itself the moment a change stands.
+        const dlSaved = !!dayLook && !dlLoose && !dayChg.n && !_dlDayEdit;
+        const view = dlSaved ? _dlSavedViewHtml(dayLook, {
+          occHtml: dlOccHtml,
+          tagsHtml: _rbTagsRowHtml(data.look_tags, '__dlTagsEdit'),
+          actionHtml: `<button onclick="window.__rbShare&&window.__rbShare()">Share this look</button>`,
+          rackLabel: `The rack · ${_waEsc(dlMomentLabel)}`,
+          headButtonsHtml: ((data && data.worn)
+            ? `<span class="rbc-hbtn" style="opacity:.55;pointer-events:none">Worn ✓</span>`
+            : (owned > 0 ? `<button class="rbc-hbtn" id="dl-wear-btn" onclick="window.__dlWear()" title="Log these pieces as worn — wear counts feed cost-per-wear">✓ Wore it</button>` : ''))
+            + `<button class="rbc-hbtn" onclick="window.__dlDayEdit()" title="Swap, add or take out a piece — for this day only">✎ Adjust this day</button>`
+            + `<button class="rbc-hbtn" onclick="window.__dlRestyle()" title="A fresh look — anchored pieces stay">↻ Restyle this day</button>`,
+        }) : con;
 
         // Header mirrors the live Moodboard: eyebrow → short serif title →
         // keyword row → meta row (weather-strip pill + occasion tag pill).
@@ -14475,9 +14587,9 @@ button.rb-lk-live{cursor:pointer}
             ${data.fallback ? `<p style="font-size:12px;color:var(--ink-faint);font-style:italic;margin:12px 0 0">Robes couldn’t quite read your brief, so it’s dressed you for a lovely ordinary day instead.</p>` : ''}
             <div class="dlm-rule"></div>
 
-            <div class="dlm-console">
-              <div class="dlm-look">${con.lookHtml}</div>
-              <div>${con.rackHtml}</div>
+            <div class="dlm-console${dlSaved ? ' dlm-saved' : ''}">
+              <div class="dlm-look">${view.lookHtml}</div>
+              <div>${view.rackHtml}</div>
             </div>
 
             ${_rbFeedbackBlock('dl', { title: 'How is today’s look?', up: '👍 I’d wear it', down: 'Not quite' })}

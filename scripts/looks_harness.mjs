@@ -2717,6 +2717,52 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   check('rule 05 · an untouched day says nothing — the banner is for changes',
     day.banner === false, JSON.stringify(day));
 
+  // The saved view (Annie, 2026-09-08): an untouched day holds the look as
+  // it reads on its own page — the look panel, the reading rack with each
+  // piece's wear count, no flick and no Swap — under the day's own header
+  // and verbs. Adjust this day opens the console; a change brings it back
+  // by itself.
+  const savedView = await page.evaluate(async () => {
+    const con = document.querySelector('#dl-result-page .dlm-console');
+    const out = {
+      saved: !!con && con.classList.contains('dlm-saved'),
+      arrows: con ? con.querySelectorAll('.rbc-arrow').length : -1,
+      swaps: con ? Array.from(con.querySelectorAll('.rbc-act')).filter((b) => /Swap/.test(b.textContent)).length : -1,
+      wears: con ? con.querySelectorAll('.rbc-wears').length : -1,
+      head: con?.querySelector('.rbc-lhead .lab')?.textContent,
+      btns: Array.from(con?.querySelectorAll('.rbc-hbtn') || []).map((b) => b.textContent.trim()),
+      share: con?.querySelector('.rbc-action button')?.textContent,
+      switcher: !!con?.querySelector('.rbc-occ, [onclick*="__dlSetSlot"]'),
+      eyebrow: document.querySelector('#dl-result-page .dlm-eyebrow')?.textContent,
+      title: document.querySelector('#dl-result-page .dlm-title')?.textContent,
+      door: !!document.querySelector('#dl-result-page .dlm-lksrc button'),
+      pieceDoors: con ? con.querySelectorAll('.rbc-rack .rbc-namebtn').length : -1,
+    };
+    window.__dlDayEdit();
+    await new Promise((r) => setTimeout(r, 300));
+    const con2 = document.querySelector('#dl-result-page .dlm-console');
+    out.editSaved = !!con2 && con2.classList.contains('dlm-saved');
+    out.editArrows = con2 ? con2.querySelectorAll('.rbc-arrow').length : -1;
+    out.editHead = con2?.querySelector('.rbc-lhead .lab')?.textContent;
+    return out;
+  });
+  check('saved view · an untouched day holds the saved look as it reads on its page',
+    savedView.saved === true && savedView.arrows === 0 && savedView.swaps === 0 && savedView.wears === 4
+      && savedView.head === 'The look · 4 pieces' && savedView.pieceDoors === 4,
+    JSON.stringify(savedView));
+  // (The weather pill reads the live forecast, absent under the stub.)
+  check('saved view · the header stays the day\'s — the date, its name, the door to the look',
+    /^[A-Z][a-z]+day \d+ [A-Z]/.test(savedView.eyebrow || '') && savedView.title === 'Board day' && savedView.door === true,
+    JSON.stringify([savedView.eyebrow, savedView.title, savedView.door]));
+  check('saved view · the day keeps its verbs — Wore it, Adjust this day, Restyle, Share, the Day/Evening switcher',
+    savedView.btns.some((b) => /Wore it/.test(b)) && savedView.btns.some((b) => /Adjust this day/.test(b))
+      && savedView.btns.some((b) => /Restyle this day/.test(b)) && savedView.share === 'Share this look'
+      && savedView.switcher === true,
+    JSON.stringify([savedView.btns, savedView.share, savedView.switcher]));
+  check('saved view · Adjust this day opens the console, The day, with the flick cluster',
+    savedView.editSaved === false && savedView.editArrows === 8 && /^The day · 4 pieces/.test(savedView.editHead || ''),
+    JSON.stringify([savedView.editSaved, savedView.editArrows, savedView.editHead]));
+
   const adjusted = await page.evaluate(async () => {
     window.__dlFlip(0, 1);   // swap the first piece for another of hers
     await new Promise((r) => setTimeout(r, 400));
