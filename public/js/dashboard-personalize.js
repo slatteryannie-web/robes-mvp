@@ -4226,6 +4226,18 @@
         return d.toISOString().slice(0, 10);
       }
       function _pdHttp(u) { return (typeof u === 'string' && u.indexOf('http') === 0) ? u : null; }
+      // Three-letter months, always — newer ICU prints "Sept" for the short
+      // month, and a date range must hold one width wherever it prints.
+      const _RB_MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      function _rbMon3(iso) { return _RB_MON3[+String(iso || '').slice(5, 7) - 1] || ''; }
+      function _rbDateRange(fromISO, toISO) {
+        if (!fromISO || isNaN(Date.parse(fromISO + 'T00:00:00Z'))) return '';
+        const fd = +String(fromISO).slice(8, 10), td = toISO ? +String(toISO).slice(8, 10) : null;
+        if (!toISO || toISO <= fromISO) return fd + ' ' + _rbMon3(fromISO);
+        return _rbMon3(fromISO) === _rbMon3(toISO)
+          ? fd + '–' + td + ' ' + _rbMon3(fromISO)
+          : fd + ' ' + _rbMon3(fromISO) + ' – ' + td + ' ' + _rbMon3(toISO);
+      }
       function _pdBase(sourceType, sourceId, dayIndex, dayDate, slot) {
         return {
           user_id: _waUid(), day_date: dayDate,
@@ -14842,12 +14854,25 @@
 #tv-result-page .tvm-eyebrow{font-size:10px;font-weight:500;letter-spacing:.24em;text-transform:uppercase;color:var(--rose);margin-bottom:8px}
 #tv-result-page .tvm-back{background:none;border:none;cursor:pointer;padding:0;margin:0 0 14px;font-size:11px;letter-spacing:.04em;color:var(--ink-faint);font-family:inherit}
 #tv-result-page .tvm-back:hover{color:var(--ink)}
-#tv-result-page .tvm-mast{display:flex;justify-content:space-between;align-items:flex-end;gap:28px}
+#tv-result-page .tvm-mast{display:flex;justify-content:space-between;align-items:flex-start;gap:28px}
+#tv-result-page .tvm-mast>.tv-noprint{margin-top:26px}
 #tv-result-page .tvm-title{font-family:var(--font-serif);font-weight:300;font-style:italic;font-size:clamp(30px,4vw,44px);line-height:1.05;margin:0;color:var(--ink);max-width:22ch}
-#tv-result-page .tvm-meta-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:16px}
-#tv-result-page .tvm-wx{display:inline-flex;align-items:center;gap:10px;padding:8px 14px;background:#fff;border:0.5px solid var(--rule-mid);border-radius:100px;font-size:11.5px;color:var(--ink-soft)}
-#tv-result-page .tvm-wx strong{font-weight:500;color:var(--ink)}
-#tv-result-page .tvm-wx .div{width:1px;height:11px;background:var(--rule-mid)}
+#tv-result-page .tvm-factwrap{margin-top:18px;max-width:520px}
+#tv-result-page .tvm-facts{background:#fff;border:1px solid var(--rule-mid);border-radius:var(--rad-sm);overflow:hidden}
+#tv-result-page .tvm-fact{display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border:none;border-bottom:1px solid var(--rule-mid);background:transparent;cursor:pointer;text-align:left;font-family:inherit;color:var(--ink);transition:background .15s;box-sizing:border-box}
+#tv-result-page .tvm-fact:last-child{border-bottom:none}
+#tv-result-page button.tvm-fact:hover{background:var(--cream-100)}
+#tv-result-page .tvm-fact.fc{background:var(--cream-100);cursor:default;padding:11px 13px}
+#tv-result-page .tvm-fact svg{flex:none;width:14px;height:14px;stroke:var(--ink-soft);fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+#tv-result-page .tvm-fact svg:last-child{width:12px;height:12px;stroke:var(--ink-faint)}
+#tv-result-page .tvm-fact .fb{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+#tv-result-page .tvm-fact .fl{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);line-height:1}
+#tv-result-page .tvm-fact .fv{font-size:13px;line-height:1.25;color:var(--ink)}
+#tv-result-page .tvm-fact .fs{color:var(--ink-soft)}
+#tv-result-page .tvm-fact .fv.wx{flex:1;min-width:0;font-size:11px;line-height:1.3;color:var(--ink-soft)}
+#tv-result-page .tvm-fact .fv.wx em{font-family:var(--font-serif);font-style:italic;font-size:13px}
+#tv-result-page .tvm-fact.fc .fl{flex:none;margin-left:auto}
+#tv-result-page .tvm-tagrow{display:flex;align-items:center;gap:10px;margin-top:14px}
 #tv-result-page .tvm-tag{display:inline-flex;align-items:center;padding:8px 14px;border-radius:100px;background:var(--rose-bg);border:0.5px solid rgba(142,112,119,0.2);font-family:var(--font-serif);font-style:italic;font-size:14px;color:var(--rose);cursor:pointer}
 #tv-result-page .tvm-editbtn{display:inline-flex;align-items:center;padding:8px 16px;border:0.5px solid var(--rule-mid);border-radius:100px;background:#fff;font-size:11.5px;color:var(--ink);cursor:pointer;font-family:inherit;transition:border-color .15s}
 #tv-result-page .tvm-editbtn:hover{border-color:rgba(32,32,33,0.3)}
@@ -14859,26 +14884,40 @@
 #tv-result-page .tvm-secact{margin-left:auto;display:flex;gap:8px;align-items:center;position:relative}
 #tv-result-page .tvm-addbtn{display:inline-flex;align-items:center;gap:6px;border:0.5px solid rgba(32,32,33,0.25);border-radius:100px;padding:9px 18px;font-size:12px;background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;transition:background .15s}
 #tv-result-page .tvm-addbtn:hover{background:var(--cream-100,#F5F1EA)}
-#tv-result-page .tvw-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x proximity}
-#tv-result-page .tvw-card{position:relative;flex:1 0 200px;max-width:280px;scroll-snap-align:start;background:#fff;border:0.5px solid var(--rule-mid);border-radius:10px;padding:13px 14px;display:flex;flex-direction:column;gap:6px;min-height:176px;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s;box-sizing:border-box}
-#tv-result-page .tvw-card.bare{background:transparent;border-style:dashed;border-color:rgba(32,32,33,0.2)}
-#tv-result-page .tvw-card.sel{border-color:var(--ink)}
-#tv-result-page .tvw-card .d{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--rose);padding-right:26px}
-#tv-result-page .tvw-card .t{font-family:var(--font-serif);font-size:16.5px;line-height:1.2;color:var(--ink)}
+#tv-result-page .tvw-grid{display:flex;flex-direction:column;max-width:760px;background:var(--cream-100);border:1px solid var(--rule-mid);border-radius:var(--rad-sm);overflow:hidden}
+#tv-result-page .tvw-card{position:relative;display:flex;gap:12px;padding:14px 14px 14px 12px;border-bottom:0.5px solid var(--rule-mid);background:transparent;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s;box-sizing:border-box}
+#tv-result-page .tvw-card:last-child{border-bottom:none;padding-bottom:16px}
+#tv-result-page .tvw-card:hover{background:rgba(255,255,255,0.5)}
+#tv-result-page .tvw-card.bare .tvw-g .n{color:var(--ink-faint)}
+#tv-result-page .tvw-card.sel{background:#fff;box-shadow:inset 3px 0 0 var(--ink)}
+#tv-result-page .tvw-g{width:34px;flex:none;display:flex;flex-direction:column;align-items:center;text-align:center}
+#tv-result-page .tvw-g .wd{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);line-height:1}
+#tv-result-page .tvw-g .n{font-family:var(--font-serif);font-size:24px;font-weight:300;line-height:1.05;margin:3px 0;color:var(--ink)}
+#tv-result-page .tvw-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-right:22px}
+#tv-result-page .tvw-card .d{display:none}
+#tv-result-page .tvw-lk{display:flex;align-items:center;gap:12px;background:#fff;border-radius:4px;padding:8px 12px 8px 8px}
+#tv-result-page .tvw-lk .th{width:38px;height:48px;border-radius:2px;background:var(--cream-300);flex:none;overflow:hidden;display:block}
+#tv-result-page .tvw-lk .th img{width:100%;height:100%;object-fit:cover;display:block}
+#tv-result-page .tvw-lk .lb{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+#tv-result-page .tvw-lk .ln{font-family:var(--font-serif);font-size:16px;line-height:1.2;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tv-result-page .tvw-lk .lm{display:flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+#tv-result-page .tvw-lk .ck{width:15px;height:15px;border-radius:100px;background:var(--ink);display:inline-flex;align-items:center;justify-content:center;flex:none}
+#tv-result-page .tvw-lk .ck svg{width:8px;height:8px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#tv-result-page .tvw-card .t{font-family:var(--font-serif);font-style:italic;font-size:16px;line-height:1.2;color:var(--ink)}
 #tv-result-page .tvw-card .t:hover{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
 #tv-result-page .tvw-spark{position:absolute;top:8px;right:8px;border:none;background:transparent;cursor:pointer;padding:4px;color:var(--ink);opacity:.5;display:flex;transition:opacity .15s}
 #tv-result-page .tvw-spark:hover{opacity:.9}
 #tv-result-page .tvw-card .t-add{font-family:var(--font-serif);font-style:italic;font-size:13.5px;color:var(--ink-faint)}
 #tv-result-page .tvw-card input{font-family:var(--font-serif);font-size:15px;border:none;border-bottom:1px solid rgba(32,32,33,0.3);border-radius:0;background:transparent;outline:none;padding:0 0 3px;width:100%;color:var(--ink);box-sizing:border-box}
-#tv-result-page .tvw-look{margin-top:auto;display:flex;flex-direction:column;gap:4px;min-width:0}
+#tv-result-page .tvw-look{display:flex;flex-direction:column;gap:8px;min-width:0}
 #tv-result-page .tvw-look .note{font-family:var(--font-serif);font-style:italic;font-size:11.5px;color:var(--rose)}
 #tv-result-page .tvw-look .lknames{font-family:var(--font-serif);font-style:italic;font-weight:300;font-size:12.5px;line-height:1.35;color:var(--ink-faint);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 #tv-result-page .tvw-look .sw{display:flex;gap:3px;align-items:center}
 #tv-result-page .tvw-look .sw span{width:15px;height:15px;border-radius:3px;border:0.5px solid rgba(32,32,33,0.08);box-sizing:border-box}
 #tv-result-page .tvw-look .sw .swplus{width:auto;height:auto;border:none;font-size:9.5px;color:var(--ink-faint);margin-left:2px;letter-spacing:.04em}
-#tv-result-page .tvw-pin{margin-top:auto;align-self:flex-start;font-size:9px;letter-spacing:.14em;text-transform:uppercase;border:1px dashed rgba(32,32,33,0.25);border-radius:100px;padding:5px 12px;color:var(--ink-soft);background:none;cursor:pointer;font-family:inherit}
+#tv-result-page .tvw-pin{align-self:flex-start;font-size:9px;letter-spacing:.14em;text-transform:uppercase;border:1px dashed rgba(32,32,33,0.25);border-radius:100px;padding:5px 12px;color:var(--ink-soft);background:none;cursor:pointer;font-family:inherit}
 #tv-result-page .tvw-pin:hover{border-color:rgba(32,32,33,0.5)}
-#tv-result-page .tvw-hint{margin-top:auto;font-family:var(--font-serif);font-style:italic;font-size:12px;color:var(--ink-faint)}
+#tv-result-page .tvw-hint{font-family:var(--font-serif);font-style:italic;font-size:12px;color:var(--ink-faint)}
 #tv-result-page .tv-con{display:grid;grid-template-columns:360px minmax(0,1fr);gap:34px;margin-top:18px;align-items:start}
 @media(max-width:900px){#tv-result-page .tv-con{grid-template-columns:1fr}}
 #tv-result-page .tvm-crosscta{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:100px;padding:13px 24px;font-size:12px;letter-spacing:.02em;background:var(--ink);color:#fff;cursor:pointer;transition:opacity .15s;font-family:inherit}
@@ -14912,7 +14951,7 @@
 #tv-result-page .tvm-pinbar .chip .d{font-size:9.5px;letter-spacing:.16em;color:var(--ink-soft)}
 #tv-result-page .tvm-pinbar .chip .s{font-size:10px;color:var(--rose);white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis}
 #tv-result-page .tvm-pinbar .chip.free .s{color:var(--ink-faint);font-style:italic}
-#tv-result-page .tvw-pinstage{margin-top:auto;align-self:flex-start;border:none;background:none;padding:0;text-align:left;font-family:var(--font-serif);font-style:italic;font-size:12.5px;color:var(--rose);cursor:pointer}
+#tv-result-page .tvw-pinstage{align-self:flex-start;border:none;background:none;padding:0;text-align:left;font-family:var(--font-serif);font-style:italic;font-size:12.5px;color:var(--rose);cursor:pointer}
 #tv-result-page .tvw-pinstage:hover{text-decoration:underline;text-underline-offset:3px}
 #tv-result-page .tv-sheethead{display:none}
 #tv-result-page #tv-stage-scrim{display:none}
@@ -14963,7 +15002,9 @@
 #tv-result-page .tvm-mast{flex-direction:column;align-items:flex-start;gap:16px}
 }
 @media(max-width:767px){
-#tv-result-page .tvw-card{flex:none;width:140px}
+#tv-result-page .tvw-grid{max-width:none}
+#tv-result-page .tvw-card{padding:12px 12px 12px 10px}
+#tv-result-page .tvm-factwrap{max-width:none}
 #tv-result-page .tvm-lookgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 #tv-result-page .tvm-capbar .hint{display:none}
 }
@@ -15393,11 +15434,25 @@ body>*:not(#tv-result-page){display:none !important}
             : (dispTitle
               ? `<span class="t" title="Tap to rename" onclick="event.stopPropagation();window.__tvDayTitleEdit(${di})">${_waEsc(dispTitle)}</span>`
               : `<span class="t-add" onclick="event.stopPropagation();window.__tvDayTitleEdit(${di})">add plans…</span>`);
+          // The Travel diary (Diary IA phase 4, 2026-09-08): a vertical
+          // list, one row per day — gutter (weekday / numeral / month),
+          // her title, then each pinned look as a row (thumb, name, N
+          // pieces; a re-wear notes itself) — the Diary's trip block and
+          // this list are one anatomy. The names phrase and swatches
+          // retire from this surface; the DayCard rail/month keep theirs.
+          const lookRow = x => {
+            const entries = _tvLookEntries(x.li, di);
+            const first = entries[0] && entries[0].it;
+            const hero = _tvLookHero(x.li, di)
+              || (first && first.wardrobe_match && _pdHttp(first.wardrobe_match.image_url))
+              || (first && Number.isInteger(first.image_index) ? _pdHttp((data.generatedImages || [])[first.image_index]) : null);
+            const nP = entries.length || (x.l.pieces || []).length;
+            return `<span class="tvw-lk"><span class="th">${hero ? `<img src="${_waEsc(hero)}" alt="" onerror="this.remove()">` : ''}</span><span class="lb"><span class="ln">${_waEsc(lookName(x) || 'The look')}</span><span class="lm"><i class="ck"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg></i>${nP ? nP + ' piece' + (nP === 1 ? '' : 's') : 'a look'}</span></span></span>`;
+          };
           const lookHtml = pinned.length
             ? `<span class="tvw-look">
                 ${note ? `<span class="note">${_waEsc(note)}</span>` : ''}
-                ${phrase ? `<span class="lknames">${_waEsc(phrase)}</span>` : ''}
-                ${(sw.length || plus) ? `<span class="sw">${sw.map(h => `<span style="background:${_waEsc(h)}"></span>`).join('')}${plus}</span>` : ''}
+                ${pinned.map(lookRow).join('')}
               </span>`
             : (stageUnpinned
               ? `<button class="tvw-pinstage tv-noprint" onclick="event.stopPropagation();window.__tvStagePin(${di})">pin ${_waEsc(String(stageLk.title || stageLk.occasion || 'it').toLowerCase())} here</button>`
@@ -15410,10 +15465,15 @@ body>*:not(#tv-result-page){display:none !important}
           const spark = pinned.length
             ? `<button class="tvw-spark tv-noprint" title="Restyle this day" aria-label="Restyle this day" onclick="event.stopPropagation();window.__tvDayPick(${di})">${_DC_RING_SVG}</button>`
             : '';
+          const info = _tvDayInfo(di);
+          const parts = info.date ? info.date.replace(/,/g, '').split(' ') : [];
+          const gutter = parts.length >= 3
+            ? `<span class="tvw-g"><span class="wd">${_waEsc(parts[0])}</span><span class="n">${_waEsc(parts[1])}</span><span class="wd">${_waEsc(_rbMon3(_pdAddISO(data.dateFrom, di)) || parts[2])}</span></span>`
+            : `<span class="tvw-g"><span class="wd">Day</span><span class="n">${di + 1}</span></span>`;
           return `<div class="tvw-card${(title || pinned.length) ? '' : ' bare'}${sel ? ' sel' : ''}" onclick="window.__tvDayTap(${di})" role="button" tabindex="0">
-            ${spark}<span class="d">${_waEsc(_tvDayShort(di, true))}</span>
+            ${spark}${gutter}<span class="tvw-b"><span class="d">${_waEsc(_tvDayShort(di, true))}</span>
             ${titleHtml}
-            ${lookHtml}
+            ${lookHtml}</span>
           </div>`;
         }).join('');
         if (_tvEditingDayI != null) {
@@ -16137,22 +16197,36 @@ body>*:not(#tv-result-page){display:none !important}
       // The masthead's meta pills — weather (client-fetched for canvas
       // trips, server-echoed on engine-styled ones) + the vibe pill.
       // Repainted in place when the weather lands or the details change.
+      // The masthead facts (design Robes_Diary_IA trip detail, Diary IA
+      // phase 4, 2026-09-08): Destination / Dates · N days / Forecast as
+      // one hairline card — the first two open Edit details, the forecast
+      // is read-only — then the vibe pill. Weather still fills in late
+      // through _tvPaintMastMeta (the forecast row reads "Reading the
+      // forecast…" until it lands, and says so honestly when it can't).
       function _tvMastMetaHtml(data) {
         const wx = data.weather || null;
-        const emoji = (() => {
-          const c = ((wx && wx.condition) || '').toLowerCase();
-          if (/rain|drizzle|shower/.test(c)) return '🌧';
-          if (/snow/.test(c)) return '❄️';
-          if (/thunder|storm/.test(c)) return '⛈';
-          if (/cloud|overcast|fog/.test(c)) return '☁️';
-          if (/clear|sun/.test(c)) return '☀️';
-          return '🌤';
-        })();
+        const place = (wx && wx.city) ? wx.city + (wx.country ? ', ' + wx.country : '') : (data.destination || 'Somewhere lovely');
+        const range = _rbDateRange(data.dateFrom, data.dateTo) || data.dateLine || '';
+        const n = Number(data.tripDays) || 0;
+        const ico = {
+          pin: '<svg viewBox="0 0 16 16"><path d="M8 14.5s4.5-4.2 4.5-8a4.5 4.5 0 0 0-9 0c0 3.8 4.5 8 4.5 8z"/><circle cx="8" cy="6.5" r="1.6"/></svg>',
+          cal: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="1.2"/><path d="M2.5 7h11M5.5 2v3M10.5 2v3"/></svg>',
+          wx: '<svg viewBox="0 0 16 16"><path d="M5 12.5h6.5a2.5 2.5 0 0 0 .4-5 4 4 0 0 0-7.6-1A3 3 0 0 0 5 12.5z"/></svg>',
+          chev: '<svg viewBox="0 0 12 12"><path d="M4.8 2.6L8.2 6l-3.4 3.4"/></svg>',
+        };
+        const fact = (icon, label, value, extra) => `<button type="button" class="tvm-fact tv-noprint" onclick="window.__tvEditDetails()">${icon}<span class="fb"><span class="fl">${label}</span><span class="fv">${value}${extra ? `<span class="fs"> · ${_waEsc(extra)}</span>` : ''}</span></span>${ico.chev}</button>`;
+        const wxLine = wx
+          ? [wx.tempRange ? _waEsc(wx.tempRange) : '', wx.condition ? `<em>${_waEsc(wx.condition)}${wx.seasonal ? ' · seasonal read' : ''}</em>` : ''].filter(Boolean).join(' · ')
+          : (data.dateFrom ? 'Reading the forecast…' : '');
         return `
-          <div class="tvm-wx"><span>${emoji}</span><strong>${_waEsc([wx && wx.city ? wx.city + (wx.country ? ', ' + wx.country : '') : data.destination, data.dateLine].filter(Boolean).join(' · ')) || 'Your trip'}</strong>${wx && wx.tempRange ? `<span class="div"></span><span>${_waEsc(wx.tempRange)}</span>` : ''}${wx && wx.condition ? `<span class="div"></span><span style="font-style:italic">${_waEsc(wx.condition)}${wx.seasonal ? ' · seasonal read' : ''}</span>` : ''}</div>
+          <div class="tvm-facts">
+            ${fact(ico.pin, 'Destination', _waEsc(place))}
+            ${fact(ico.cal, 'Dates', _waEsc(range || 'Add the dates'), n ? n + ' day' + (n === 1 ? '' : 's') : '')}
+            ${wxLine ? `<div class="tvm-fact fc">${ico.wx}<span class="fv wx">${wxLine}</span><span class="fl">Forecast</span></div>` : ''}
+          </div>
           ${data.vibe
-            ? `<button class="tvm-tag tv-noprint" onclick="window.__tvEditDetails()" title="Edit the vibe">${_waEsc(data.vibe)}</button>`
-            : (data.location_vibe ? `<div class="tvm-tag">${_waEsc(data.location_vibe)}</div>` : '')}`;
+            ? `<div class="tvm-tagrow"><button class="tvm-tag tv-noprint" onclick="window.__tvEditDetails()" title="Edit the vibe">${_waEsc(data.vibe)}</button></div>`
+            : (data.location_vibe ? `<div class="tvm-tagrow"><div class="tvm-tag">${_waEsc(data.location_vibe)}</div></div>` : '')}`;
       }
       function _tvPaintMastMeta() {
         const el = document.getElementById('tv-mastmeta');
@@ -16296,7 +16370,7 @@ body>*:not(#tv-result-page){display:none !important}
                   <h1 class="tvm-title" id="tv-headline" style="min-width:0">${_waEsc(data.headline || ('A trip to ' + (data.destination || 'somewhere lovely') + '.'))}</h1>
                   <button class="rb-rename-tbtn" title="Rename" style="margin-top:6px" onclick="window.__rbRename&&window.__rbRename('tv')"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button>
                 </div>
-                <div class="tvm-meta-row" id="tv-mastmeta">${_tvMastMetaHtml(data)}</div>
+                <div class="tvm-factwrap" id="tv-mastmeta">${_tvMastMetaHtml(data)}</div>
               </div>
               <div class="tv-noprint" style="flex-shrink:0;padding-bottom:6px">
                 <button class="tvm-editbtn" onclick="window.__tvEditDetails()">Edit details</button>
@@ -16307,7 +16381,7 @@ body>*:not(#tv-result-page){display:none !important}
 
             <section class="tvm-sec" id="tv-sec-week">
               <div class="tvm-sechead">
-                <span class="tvm-seclab">The ${nDays > 7 ? 'trip' : 'week'}</span>
+                <span class="tvm-seclab">Travel diary</span>
                 <span class="tvm-sechint" id="tv-week-hint">name the day, then pin a look</span>
               </div>
               <div class="tvw-grid" id="tv-weekstrip"></div>
@@ -20681,16 +20755,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
         };
         // Three-letter months, always — newer ICU prints "Sept" for the
         // short month, and the gutter/date range must stay one width.
-        const _DY_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        function _dyMon(iso) { return _DY_MON[+String(iso).slice(5, 7) - 1] || ''; }
-        function _dyRange(fromISO, toISO) {
-          if (!fromISO) return '';
-          const fd = +String(fromISO).slice(8, 10), td = toISO ? +String(toISO).slice(8, 10) : null;
-          if (!toISO || toISO <= fromISO) return fd + ' ' + _dyMon(fromISO);
-          return _dyMon(fromISO) === _dyMon(toISO)
-            ? fd + '–' + td + ' ' + _dyMon(fromISO)
-            : fd + ' ' + _dyMon(fromISO) + ' – ' + td + ' ' + _dyMon(toISO);
-        }
+        const _dyMon = _rbMon3, _dyRange = _rbDateRange;
         function _dyKey(m) { return m.day_date + '|' + (m.slot || 'day') + '|' + m.source_type + '|' + m.source_id; }
         function _dyRemember(m) { const k = _dyKey(m); _dyMoments[k] = m; return _waEsc(k); }
         function _dyLookName(m) {
