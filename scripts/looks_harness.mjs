@@ -2311,7 +2311,10 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     const iso = t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
     const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
     const isMonthTail = t.getDate() === last;
-    const cell = document.querySelector('#sn-cal .rb-dc[onclick*="__mvWear"]');
+    // The Diary opens on the LIST (2026-09-08): an empty future day is an
+    // invitation whose + reaches the same door; the month grid's cell
+    // stays wired too.
+    const cell = document.querySelector('#sn-cal .rb-dc[onclick*="__mvWear"], #sn-cal .dy-invite .dy-inv-add, #sn-cal .dy-addlook');
     const nxt = new Date(t.getTime() + 86400000);
     const niso = nxt.getFullYear() + '-' + p(nxt.getMonth() + 1) + '-' + p(nxt.getDate());
     window.__mvWear(niso);

@@ -20221,6 +20221,22 @@ body>*:not(#tv-result-page){display:none !important}
         var _mvSources = {};
         var _mvHidden = [];           // per-week bands beyond the two lanes (+N reveal)
         var _mvWearCtx = null;        // add-a-look picker: {date, target, title} for rename
+        // ── The LIST view (design Robes_Diary_IA, Diary IA phase 3,
+        // 2026-09-08) — the Diary's DEFAULT: a vertical, dated list of the
+        // month fed by the SAME rows and winners the month grid reads (one
+        // data path, no freshness gap). Today and the week ahead invite
+        // while empty (name the day, or + a look / a trip); a day that
+        // holds something is a card (her title, its looks, + Add a look);
+        // a travel edit is a block (title · dates · weather, then its days,
+        // named inline); the past files quietly. Empty days beyond the
+        // week fold into "Nothing filed for the rest of…". Month is one
+        // toggle away ("Month reads the shape of it. List is where you
+        // plan."), remembered per device.
+        var _dyMode = 'list';
+        try { if (localStorage.getItem('rb_diary_mode') === 'month') _dyMode = 'month'; } catch (_) {}
+        var _dyNaming = null;         // date whose inline rename is open
+        var _dyNameTarget = null;     // the moment that rename writes to
+        var _dyMoments = {};          // key → moment, for the list's openers
         const pad2 = n => String(n).padStart(2, '0');
         const dISO = iso => Date.parse(iso + 'T00:00:00Z');
         const diffD = (a, b) => Math.round((dISO(b) - dISO(a)) / 86400000);
@@ -20287,7 +20303,94 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 #rb-mv-pop .card button i{flex:none;width:8px;height:8px;border-radius:50%}
 .rb-mcells .rb-dc.dc-compact{min-height:150px}
 @media(max-width:1000px){.rb-mc-strip{display:none}}
-@media(max-width:767px){.rb-mc{aspect-ratio:1;padding:5px;border-radius:var(--rad-sm)}.rb-mc .n{font-size:13px}.rb-mc .act{font-size:10px}.rb-mband{font-size:9px;padding:0 6px;height:14px}.rb-mv-title{font-size:26px}}`;
+@media(max-width:767px){.rb-mc{aspect-ratio:1;padding:5px;border-radius:var(--rad-sm)}.rb-mc .n{font-size:13px}.rb-mc .act{font-size:10px}.rb-mband{font-size:9px;padding:0 6px;height:14px}.rb-mv-title{font-size:26px}}
+/* ── Diary list view (phase 3) ── */
+.rb-mv-nav{align-items:center}
+.rb-mv-seg{display:inline-flex;gap:2px;padding:3px;border:0.5px solid rgba(32,32,33,0.18);border-radius:100px;margin-left:6px}
+.rb-mv-seg button{width:30px;height:24px;border:none;border-radius:100px;background:transparent;color:var(--ink-soft,#6E6A64);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.rb-mv-seg button.on{background:var(--ink,#202021);color:#fff}
+.rb-mv-seg button svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
+.rb-mv-cap{font-size:11px;line-height:1.5;color:var(--ink-faint,#9A9082);text-align:center;margin:18px 0 0}
+.dy-list{display:flex;flex-direction:column;gap:2px;max-width:760px}
+.dy-row{display:flex;gap:14px;padding:10px 0}
+.dy-g{width:44px;flex:none;padding-top:2px;display:flex;flex-direction:column}
+.dy-wd{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint,#9A9082);line-height:1}
+.dy-n{font-family:'Cormorant',Georgia,serif;font-size:20px;font-weight:300;line-height:1.1;margin-top:4px;color:var(--ink,#202021)}
+.dy-g.quiet .dy-n{color:var(--ink-soft,#6E6A64)}
+.dy-invite{flex:1;min-width:0;display:flex;align-items:stretch;border:1px dashed var(--cream-400,#C9BCA6);border-radius:var(--rad-sm,8px)}
+.dy-inv-in{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:var(--rad-sm,8px) 0 0 var(--rad-sm,8px);cursor:text;transition:background .15s}
+.dy-inv-in:hover,.dy-inv-in:focus-within{background:var(--cream-100,#F7F4EE)}
+.dy-inv-in svg{flex:none;width:11px;height:11px;stroke:var(--ink-faint,#9A9082);fill:none;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
+.dy-inv-in input{flex:1;min-width:0;background:transparent;border:0;outline:none;padding:4px 0;font-size:12.5px;font-family:inherit;color:var(--ink,#202021)}
+.dy-inv-in input::placeholder{color:var(--ink-faint,#9A9082)}
+.dy-inv-div{width:1px;background:var(--cream-400,#C9BCA6)}
+.dy-inv-add{flex:none;border:none;background:transparent;padding:0 18px;color:var(--ink-faint,#9A9082);cursor:pointer;border-radius:0 var(--rad-sm,8px) var(--rad-sm,8px) 0;display:flex;align-items:center;transition:background .15s,color .15s}
+.dy-inv-add:hover{background:var(--cream-100,#F7F4EE);color:var(--ink,#202021)}
+.dy-inv-add svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round}
+.dy-card{flex:1;min-width:0;background:var(--cream-100,#F7F4EE);border:1px solid var(--rule,#EDE6D8);border-radius:var(--rad-sm,8px);overflow:hidden}
+.dy-card-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:0.5px solid var(--rule-mid,rgba(32,32,33,0.14))}
+.dy-card-h h3{flex:1;min-width:0;font-family:'Cormorant',Georgia,serif;font-size:19px;font-weight:400;line-height:1.25;margin:0;color:var(--ink,#202021)}
+.dy-card-t{flex:1;min-width:0;text-align:left;border:none;background:none;padding:0;font-family:'Cormorant',Georgia,serif;font-size:19px;line-height:1.25;color:var(--ink,#202021);cursor:text}
+.dy-card-t.none{font-style:italic;font-size:17px;color:var(--ink-faint,#9A9082)}
+.dy-card-t:hover{text-decoration:underline dotted;text-underline-offset:3px}
+.dy-pen{width:24px;height:24px;flex:none;border-radius:100px;border:none;background:none;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-faint,#9A9082);cursor:pointer;padding:0;transition:background .15s,color .15s}
+.dy-pen:hover{background:var(--cream-200,#F1EDE6);color:var(--ink,#202021)}
+.dy-pen svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+.dy-name-in{flex:1;min-width:0;border:none;border-bottom:1px solid var(--ink,#202021);background:transparent;padding:2px 0;font-family:'Cormorant',Georgia,serif;font-size:19px;color:var(--ink,#202021);outline:none}
+.dy-card-b{padding:10px;display:flex;flex-direction:column;gap:8px}
+.dy-look{display:flex;align-items:center;gap:12px;width:100%;background:#fff;border:none;border-radius:5px;padding:8px 12px 8px 8px;cursor:pointer;text-align:left;font-family:inherit;transition:box-shadow .15s}
+.dy-look:hover{box-shadow:0 1px 3px rgba(32,32,33,0.08)}
+.dy-th{width:40px;height:52px;border-radius:3px;background:var(--cream-300,#E7E0CF);flex:none;overflow:hidden;display:block}
+.dy-th img{width:100%;height:100%;object-fit:cover;display:block}
+.dy-look-b{flex:1;min-width:0}
+.dy-look-n{display:block;font-family:'Cormorant',Georgia,serif;font-size:17px;line-height:1.2;color:var(--ink,#202021);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dy-look-m{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft,#6E6A64)}
+.dy-chk{width:15px;height:15px;border-radius:100px;background:var(--ink,#202021);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.dy-chk svg{width:8px;height:8px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dy-addlook{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:1px dashed var(--cream-400,#C9BCA6);background:none;border-radius:5px;padding:11px;cursor:pointer;font-size:11px;color:var(--ink-faint,#9A9082);font-family:inherit;transition:background .15s,color .15s}
+.dy-addlook:hover{background:#fff;color:var(--ink,#202021)}
+.dy-addlook svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round}
+.dy-trip{flex:1;min-width:0;background:var(--cream-100,#F7F4EE);border:1px solid var(--rule-mid,rgba(32,32,33,0.14));border-radius:var(--rad-card,14px);overflow:hidden}
+.dy-trip-h{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:var(--cream-200,#F1EDE6);border:none;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s}
+.dy-trip-h:hover{background:var(--cream-300,#E7E0CF)}
+.dy-trip-h h3{flex:1;min-width:0;font-family:'Cormorant',Georgia,serif;font-size:20px;font-weight:400;line-height:1.2;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink,#202021)}
+.dy-trip-d{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft,#6E6A64);flex:none}
+.dy-trip-h svg{flex:none;width:14px;height:14px;stroke:var(--ink-soft,#6E6A64);fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+.dy-trip-wx{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:0.5px solid var(--rule-mid,rgba(32,32,33,0.14));font-size:10.5px;line-height:1.3;color:var(--ink-soft,#6E6A64)}
+.dy-trip-wx em{font-family:'Cormorant',Georgia,serif;font-size:12.5px}
+.dy-trip-wx svg{width:12px;height:12px;stroke:var(--ink-faint,#9A9082);fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.dy-tday{display:flex;gap:12px;padding:14px 14px 14px 12px;border-bottom:0.5px solid var(--rule-mid,rgba(32,32,33,0.14))}
+.dy-tday:last-child{border-bottom:none;padding-bottom:16px}
+.dy-tday .dy-g{width:34px;align-items:center;padding-top:0}
+.dy-tday .dy-g .dy-wd{font-size:8.5px;letter-spacing:.18em}
+.dy-tday .dy-g .dy-n{font-size:24px;line-height:1.05;margin:3px 0}
+.dy-tday-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.dy-tday-t{align-self:flex-start;max-width:100%;border:none;background:none;padding:0;font-family:'Cormorant',Georgia,serif;font-style:italic;font-size:16px;line-height:1.2;color:var(--ink,#202021);cursor:text;text-align:left}
+.dy-tday-t:hover{text-decoration:underline dotted;text-underline-offset:3px}
+.dy-tday-t.none{color:var(--ink-faint,#9A9082)}
+.dy-tday .dy-name-in{font-style:italic;font-size:16px}
+.dy-tday .dy-look{padding:8px 12px 8px 8px;border-radius:4px}
+.dy-tday .dy-th{width:38px;height:48px;border-radius:2px}
+.dy-tday .dy-look-n{font-size:16px}
+.dy-tadd{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;border:none;background:none;padding:2px 0;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint,#9A9082);cursor:pointer;font-family:inherit}
+.dy-tadd:hover{color:var(--ink,#202021)}
+.dy-tadd svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round}
+.dy-row.past{padding:8px 0}
+.dy-past{flex:1;min-width:0;display:flex;align-items:center;gap:13px;background:var(--cream-100,#F7F4EE);border:none;border-radius:var(--rad-sm,8px);padding:12px 14px;cursor:pointer;text-align:left;font-family:inherit}
+.dy-past .dy-th{width:44px;height:56px;border-radius:5px;background:var(--cream-200,#F1EDE6);border:0.5px solid var(--rule,#EDE6D8)}
+.dy-past-b{flex:1;min-width:0}
+.dy-past-n{display:block;font-family:'Cormorant',Georgia,serif;font-size:17px;line-height:1.25;color:var(--ink,#202021)}
+.dy-past-m{display:block;font-size:11px;line-height:1.4;color:var(--ink-soft,#6E6A64);margin-top:5px}
+.dy-worn{flex:none;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint,#9A9082);border:0.5px solid var(--rule-mid,rgba(32,32,33,0.14));border-radius:100px;padding:5px 9px}
+.dy-tail{margin-top:22px;padding-top:20px;border-top:1px solid var(--rule,#EDE6D8);text-align:center}
+.dy-tail p{font-size:12px;line-height:1.5;color:var(--ink-faint,#9A9082);margin:0 0 14px}
+.dy-tail button{display:inline-flex;align-items:center;gap:8px;border:none;background:none;font-size:12px;color:var(--ink,#202021);cursor:pointer;font-family:inherit}
+.dy-tail button svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+.dy-empty{padding:56px 24px 36px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.dy-empty h3{font-family:'Cormorant',Georgia,serif;font-size:32px;font-weight:300;line-height:1.15;margin:0;color:var(--ink,#202021)}
+.dy-empty p{font-size:13px;line-height:1.7;color:var(--ink-soft,#6E6A64);margin:16px 0 0;max-width:300px}
+.dy-empty-cta{margin-top:28px;background:var(--ink,#202021);color:#fff;border:none;border-radius:100px;padding:14px 28px;cursor:pointer;font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-family:inherit;font-weight:500}
+@media(max-width:767px){.dy-list{max-width:none}.dy-row{gap:12px}.dy-tday{padding:12px 12px 12px 10px}.rb-mv-head{align-items:center;gap:10px}.rb-mv-title{font-size:24px}.rb-mv-nav{gap:4px}.rb-mv-nav button{width:28px;height:28px;font-size:13px}.rb-mv-seg{margin-left:2px;padding:2px}.rb-mv-seg button{width:26px;height:22px}}`;
           document.head.appendChild(st);
         }
 
@@ -20322,15 +20425,16 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
         // The Diary's + menu (design Robes_Diary_IA, 2026-09-08): a look
         // for a day (the shared add-a-look picker, today by default) or a
         // travel edit (the where/when/vibe intake, over the Diary).
-        window.__rbDiaryAddMenu = function(ev) {
+        window.__rbDiaryAddMenu = function(ev, date) {
           if (ev) { ev.stopPropagation(); ev.preventDefault(); }
           document.getElementById('rb-dy-addmenu')?.remove();
+          date = date || _pdLocalISO();
           const n = (typeof _lkLooks !== 'undefined' && Array.isArray(_lkLooks)) ? _lkLooks.length : 0;
           const pop = document.createElement('div');
           pop.id = 'rb-dy-addmenu';
           pop.innerHTML = '<div style="position:absolute;inset:0" onclick="document.getElementById(\'rb-dy-addmenu\').remove()"></div>' +
             '<div class="card">' +
-            '<button onclick="document.getElementById(\'rb-dy-addmenu\').remove();window.__mvWear(\'' + _pdLocalISO() + '\')">' +
+            '<button onclick="document.getElementById(\'rb-dy-addmenu\').remove();window.__mvWear(\'' + date + '\')">' +
               '<svg width="15" height="15" viewBox="0 0 16 16"><path d="M4.5 2.2h7v11.6l-3.5-2.6-3.5 2.6z"/></svg>' +
               '<span><span class="t">Add a look</span><span class="s" style="display:block">Lookbook · ' + _lkN(n, 'look') + '</span></span></button>' +
             '<button onclick="document.getElementById(\'rb-dy-addmenu\').remove();window.__lkNewHoliday()">' +
@@ -20432,8 +20536,25 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           return bands;
         }
 
+        function _dyHeadHtml(g) {
+          const monthName = new Date(dISO(g.first)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+          const ico = {
+            list: '<svg viewBox="0 0 14 14"><path d="M2 3.5h10M2 7h10M2 10.5h10"/></svg>',
+            month: '<svg viewBox="0 0 14 14"><rect x="2" y="2.5" width="10" height="9.5" rx="1"/><path d="M2 5.6h10M5.4 5.6v6.4M8.6 5.6v6.4"/></svg>',
+          };
+          return `
+            <div class="rb-mv-head">
+              <h2 class="rb-mv-title">${_waEsc(monthName)}</h2>
+              <div class="rb-mv-nav">
+                <button onclick="window.__mvNav(-1)" aria-label="Previous month">‹</button><button onclick="window.__mvNav(1)" aria-label="Next month">›</button>
+                <span class="rb-mv-seg" role="group" aria-label="View"><button class="${_dyMode === 'list' ? 'on' : ''}" onclick="window.__dySetMode('list')" title="List" aria-label="List">${ico.list}</button><button class="${_dyMode === 'month' ? 'on' : ''}" onclick="window.__dySetMode('month')" title="Month" aria-label="Month">${ico.month}</button></span>
+                <button class="rb-mv-add" onclick="window.__rbDiaryAddMenu(event)" aria-label="Add" title="Add"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M7 2.2v9.6M2.2 7h9.6"/></svg></button>
+              </div>
+            </div>`;
+        }
         function _mvPaint(g, rows, sources) {
           const today = _pdLocalISO();
+          if (_dyMode === 'list') { cal.innerHTML = _dyHeadHtml(g) + _dyListHtml(g, rows, sources, today); return; }
           const dcOn = _rbDayCardOn();
           const bands = _mvBands(g, rows, sources);
           // Lane assignment per week row (max two lanes + overflow).
@@ -20461,12 +20582,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
             placed.push({ band: p.band, sg, si: p.si, lane });
           });
           _mvHidden = weekHidden;
-          const monthName = new Date(dISO(g.first)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-          let html = `
-            <div class="rb-mv-head">
-              <h2 class="rb-mv-title">${_waEsc(monthName)}</h2>
-              <div class="rb-mv-nav"><button onclick="window.__mvNav(-1)" aria-label="Previous month">‹</button><button onclick="window.__mvNav(1)" aria-label="Next month">›</button><button class="rb-mv-add" onclick="window.__rbDiaryAddMenu(event)" aria-label="Add" title="Add"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M7 2.2v9.6M2.2 7h9.6"/></svg></button></div>
-            </div>
+          let html = _dyHeadHtml(g) + `
             <div class="rb-mv-dow">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => '<div>' + d + '</div>').join('')}</div>
             <div class="rb-mv-cal">`;
           for (let w = 0; w < g.weeks; w++) {
@@ -20545,9 +20661,220 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
             }
             html += `</div></div>`;
           }
-          html += `</div>`;
+          html += `</div><p class="rb-mv-cap">Month reads the shape of it. List is where you plan.</p>`;
           cal.innerHTML = html;
         }
+
+        window.__dySetMode = function(m) {
+          _dyMode = m === 'month' ? 'month' : 'list';
+          try { localStorage.setItem('rb_diary_mode', _dyMode); } catch (_) {}
+          _rbTrack('diary_mode', { mode: _dyMode });
+          if (_mvY != null) _mvPaint(_mvGrid(), _mvRows, _mvSources);
+        };
+        const _DY_SVG = {
+          pen: '<svg viewBox="0 0 16 16"><path d="M11.2 2.6l2.2 2.2-8 8-3 .8.8-3 8-8z"/></svg>',
+          plus: '<svg viewBox="0 0 12 12"><path d="M6 1.8v8.4M1.8 6h8.4"/></svg>',
+          chk: '<svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg>',
+          bag: '<svg viewBox="0 0 16 16"><path d="M2.5 5.5h11l-.8 8H3.3z"/><path d="M5.5 5.5V4.3a2.5 2.5 0 0 1 5 0v1.2"/></svg>',
+          chev: '<svg viewBox="0 0 12 12"><path d="M4.8 2.6L8.2 6l-3.4 3.4"/></svg>',
+          pin: '<svg viewBox="0 0 16 16"><path d="M8 14.5s4.5-4.2 4.5-8a4.5 4.5 0 0 0-9 0c0 3.8 4.5 8 4.5 8z"/><circle cx="8" cy="6.5" r="1.6"/></svg>',
+        };
+        // Three-letter months, always — newer ICU prints "Sept" for the
+        // short month, and the gutter/date range must stay one width.
+        const _DY_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        function _dyMon(iso) { return _DY_MON[+String(iso).slice(5, 7) - 1] || ''; }
+        function _dyRange(fromISO, toISO) {
+          if (!fromISO) return '';
+          const fd = +String(fromISO).slice(8, 10), td = toISO ? +String(toISO).slice(8, 10) : null;
+          if (!toISO || toISO <= fromISO) return fd + ' ' + _dyMon(fromISO);
+          return _dyMon(fromISO) === _dyMon(toISO)
+            ? fd + '–' + td + ' ' + _dyMon(fromISO)
+            : fd + ' ' + _dyMon(fromISO) + ' – ' + td + ' ' + _dyMon(toISO);
+        }
+        function _dyKey(m) { return m.day_date + '|' + (m.slot || 'day') + '|' + m.source_type + '|' + m.source_id; }
+        function _dyRemember(m) { const k = _dyKey(m); _dyMoments[k] = m; return _waEsc(k); }
+        function _dyLookName(m) {
+          const n = String((m && m.headline) || '').replace(/\.\s*$/, '').trim();
+          return /^evening( look| plan| outfit)?$/i.test(n) ? '' : n;
+        }
+        function _dyDressed(m) {
+          return !!(m && m.status !== 'free' && ((m.thumb_urls || []).length || (m.item_ids || []).length || _dyLookName(m)));
+        }
+        function _dyThumb(m) {
+          const u = (m.thumb_urls || []).find(x => _pdHttp(x));
+          if (u) return `<span class="dy-th"><img src="${_waEsc(u)}" alt="" onerror="this.remove()"></span>`;
+          const sw = _dcSwatches(m, null);
+          return `<span class="dy-th"${sw.length ? ` style="background:${_waEsc(sw[0])}"` : ''}></span>`;
+        }
+        function _dyLookRow(m) {
+          const k = _dyRemember(m);
+          const nm = _dyLookName(m) || _dcTitleOf(m) || 'A look';
+          const n = _dcPieceTotal(m) || (m.item_ids || []).length;
+          const eve = (m.slot || 'day') === 'evening';
+          return `<button type="button" class="dy-look" onclick="window.__dyOpen('${k}')">${_dyThumb(m)}<span class="dy-look-b"><span class="dy-look-n">${_waEsc(nm)}</span><span class="dy-look-m"><i class="dy-chk">${_DY_SVG.chk}</i>${eve ? 'Evening · ' : ''}${n ? _waEsc(_lkN(n, 'piece')) : 'a look'}</span></span></button>`;
+        }
+        function _dyGutter(date, withMonth, quiet) {
+          const d = new Date(date + 'T00:00:00');
+          const wd = d.toLocaleDateString('en-GB', { weekday: 'short' });
+          const mo = _dyMon(date);
+          return `<div class="dy-g${quiet ? ' quiet' : ''}"><span class="dy-wd">${_waEsc(wd)}</span><span class="dy-n">${+date.slice(8, 10)}</span>${withMonth ? `<span class="dy-wd" style="margin-top:3px">${_waEsc(mo)}</span>` : ''}</div>`;
+        }
+        function _dyNameInput(value, extra) {
+          return `<input class="dy-name-in" id="dy-name-in" value="${_waEsc(value || '')}" placeholder="Name the day" maxlength="60" onkeydown="window.__dyRenameKey(event)" onblur="window.__dyRenameCommit()"${extra || ''}>`;
+        }
+        function _dyInviteRow(date, today) {
+          return `<div class="dy-row${date === today ? ' today' : ''}" data-date="${date}">${_dyGutter(date)}<div class="dy-invite"><label class="dy-inv-in">${_DY_SVG.pen}<input placeholder="Name the day" maxlength="60" onkeydown="window.__dyInviteKey(event,'${date}')"></label><span class="dy-inv-div"></span><button type="button" class="dy-inv-add" onclick="window.__rbDiaryAddMenu(event,'${date}')" title="Add" aria-label="Add">${_DY_SVG.plus}</button></div></div>`;
+        }
+        function _dyDayCard(date, dayW, eveW, dc, today) {
+          const moments = [dayW, eveW].filter(Boolean);
+          const target = _rbDayRenameTarget(moments);
+          const tk = target ? _dyRemember(target) : '';
+          const lead = (dayW && dayW.status !== 'free') ? dayW : (eveW || dayW);
+          const title = String((lead && lead.activity) || '').trim();
+          const naming = _dyNaming === date;
+          const looks = moments.filter(_dyDressed);
+          const head = naming
+            ? _dyNameInput(title)
+            : title
+              ? `<h3>${_waEsc(title)}</h3>${target ? `<button type="button" class="dy-pen" onclick="window.__dyRename('${date}','${tk}')" title="Rename this day" aria-label="Rename this day">${_DY_SVG.pen}</button>` : ''}`
+              : (target
+                ? `<button type="button" class="dy-card-t none" onclick="window.__dyRename('${date}','${tk}')">Name the day</button>`
+                : `<h3>${date === today ? 'Today' : _waEsc(_dcTitleOf(lead) || 'Planned')}</h3>`);
+          return `<div class="dy-row${date === today ? ' today' : ''}" data-date="${date}">${_dyGutter(date)}<div class="dy-card"><div class="dy-card-h">${head}</div><div class="dy-card-b">${looks.map(_dyLookRow).join('')}<button type="button" class="dy-addlook" onclick="window.__mvWear('${date}')">${_DY_SVG.plus}<span>Add a look</span></button></div></div></div>`;
+        }
+        function _dyPastRow(date, dayW, eveW, dc) {
+          const lead = (dayW && dayW.status !== 'free') ? dayW : (eveW || dayW);
+          if (!lead) return '';
+          const k = _dyRemember(lead);
+          const nm = String(lead.activity || '').trim() || _dyLookName(lead) || 'A look';
+          const n = _dcPieceTotal(lead) || (lead.item_ids || []).length;
+          const worn = dc.modifier === 'worn';
+          const both = dayW && eveW && _dyDressed(dayW) && _dyDressed(eveW);
+          return `<div class="dy-row past" data-date="${date}">${_dyGutter(date, false, true)}<button type="button" class="dy-past" onclick="window.__dyOpen('${k}')">${_dyThumb(lead)}<span class="dy-past-b"><span class="dy-past-n">${_waEsc(nm)}</span><span class="dy-past-m">Filed${n ? ' · ' + _waEsc(_lkN(n, 'piece')) : ''}${both ? ' · day and evening' : ''}</span></span>${worn ? '<span class="dy-worn">Worn</span>' : ''}</button></div>`;
+        }
+        function _dyTripBlock(sid, datesFrom, rows, sources, today) {
+          const it = snLoad().find(x => String(x.id) === String(sid));
+          const tv = (it && it.tvData) || {};
+          const title = (it && it.title) || (sources[sid] && sources[sid].title) || 'A trip';
+          const range = _dyRange(tv.dateFrom, tv.dateTo) || tv.dateLine || '';
+          const wx = tv.weather || null;
+          const place = wx && wx.city ? wx.city + (wx.country ? ', ' + wx.country : '') : (tv.destination || '');
+          const wxBits = [place, wx && wx.tempRange].filter(Boolean).map(x => _waEsc(x));
+          const wxLine = wxBits.join(' · ') + (wx && wx.condition ? (wxBits.length ? ' · ' : '') + `<em>${_waEsc(wx.condition)}</em>` : '');
+          const mine = d => rows.some(r => r.day_date === d && String(r.source_id) === String(sid));
+          const run = [];
+          for (const d of datesFrom) { if (!mine(d)) break; run.push(d); }
+          const days = run.map(date => {
+            const here = rows.filter(r => r.day_date === date);
+            const tvr = here.find(r => String(r.source_id) === String(sid) && (r.slot || 'day') === 'day') || here.find(r => String(r.source_id) === String(sid));
+            const dayW = _pdWinner(here.filter(r => (r.slot || 'day') === 'day'));
+            const eveW = _pdWinner(here.filter(r => (r.slot || 'day') === 'evening'));
+            const looks = [dayW, eveW].filter(_dyDressed);
+            const past = date < today;
+            const k = _dyRemember(tvr);
+            const t = String(tvr.activity || '').trim();
+            const naming = _dyNaming === date;
+            const titleHtml = naming ? _dyNameInput(t)
+              : t ? `<button type="button" class="dy-tday-t" onclick="window.__dyRename('${date}','${k}')" title="Rename the day">${_waEsc(t)}</button>`
+              : (past ? '' : `<button type="button" class="dy-tday-t none" onclick="window.__dyRename('${date}','${k}')">name the day, then pin a look</button>`);
+            return `<div class="dy-tday${past ? ' past' : ''}" data-date="${date}">${_dyGutter(date, true, past)}<div class="dy-tday-b">${titleHtml}${looks.map(_dyLookRow).join('')}${(!looks.length && !past) ? `<button type="button" class="dy-tadd" onclick="window.__dyOpen('${k}')">${_DY_SVG.plus}<span>Add</span></button>` : ''}</div></div>`;
+          }).join('');
+          return `<div class="dy-row dy-triprow" data-trip="${_waEsc(String(sid))}"><div class="dy-trip"><button type="button" class="dy-trip-h" onclick="window.__snOpenItem(${Number(sid)})">${_DY_SVG.bag}<h3>${_waEsc(title)}</h3>${range ? `<span class="dy-trip-d">${_waEsc(range)}</span>` : ''}${_DY_SVG.chev}</button>${wxLine ? `<div class="dy-trip-wx">${_DY_SVG.pin}<span>${wxLine}</span></div>` : ''}${days}</div></div>`;
+        }
+        function _dyListHtml(g, rows, sources, today) {
+          _dyMoments = {};
+          const inMonth = rows.filter(r => r.day_date >= g.first && r.day_date <= g.last);
+          const horizon = _pdAddISO(today, 6);
+          const monthLong = new Date(dISO(g.first)).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' });
+          const nextName = new Date(Date.UTC(_mvY, _mvM, 1)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+          let html = '<div class="dy-list">';
+          if (!inMonth.length) {
+            // The design's empty state — nothing planned in this month.
+            // "Plan a trip" is the one commitment on the screen; the
+            // week's invitations still follow beneath (current month).
+            html += `<div class="dy-empty"><h3>Nothing planned<br><em>yet.</em></h3><p>Name a day, or pack for somewhere. The diary keeps the dates; the lookbook keeps the looks.</p><button type="button" class="dy-empty-cta" onclick="window.__lkNewHoliday()">Plan a trip</button></div>`;
+          }
+          const dates = _pdDateList(g.first, g.last);
+          const done = {};
+          let lastShown = null;
+          for (let i = 0; i < dates.length; i++) {
+            const date = dates[i];
+            const here = rows.filter(r => r.day_date === date);
+            const past = date < today;
+            const tvRow = here.find(r => r.source_type === 'travel');
+            if (tvRow) {
+              if (!done[tvRow.source_id]) {
+                done[tvRow.source_id] = true;
+                html += _dyTripBlock(tvRow.source_id, dates.slice(i), rows, sources, today);
+              }
+              lastShown = date;
+              continue;
+            }
+            const dayW = _pdWinner(here.filter(r => (r.slot || 'day') === 'day'));
+            const eveW = _pdWinner(here.filter(r => (r.slot || 'day') === 'evening'));
+            const dc = _dcMoments(dayW, eveW, { date, today });
+            if (dc.stage === 'empty') {
+              if (!past && date <= horizon) { html += _dyInviteRow(date, today); lastShown = date; }
+              continue;
+            }
+            html += past ? _dyPastRow(date, dayW, eveW, dc) : _dyDayCard(date, dayW, eveW, dc, today);
+            lastShown = date;
+          }
+          html += `<div class="dy-tail">${lastShown === g.last ? '' : `<p>Nothing filed for the rest of ${_waEsc(monthLong)}.</p>`}<button type="button" onclick="window.__mvNav(1)"><span>${_waEsc(nextName)}</span>${_DY_SVG.chev}</button></div></div>`;
+          return html;
+        }
+        // Openers + writes — the list never invents a path: a look row
+        // opens the day through the one planned-day opener, a rename goes
+        // through the one rename write path, and naming a BARE day is the
+        // standing rule (her words go to the prompt, scoped to the date —
+        // Robes dresses it). A named day with no plan behind it has no
+        // data home yet (flagged, phase 3).
+        window.__dyOpen = function(key) {
+          const m = _dyMoments[key];
+          if (m && window._rbOpenPlannedDay) window._rbOpenPlannedDay(m);
+        };
+        window.__dyRename = function(date, key) {
+          _dyNaming = date; _dyNameTarget = _dyMoments[key] || null;
+          window._rbMvRepaint();
+          const inp = document.getElementById('dy-name-in');
+          if (inp) { inp.focus(); inp.select(); }
+        };
+        window.__dyRenameKey = function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); window.__dyRenameCommit(); }
+          else if (e.key === 'Escape') { e.preventDefault(); _dyNaming = null; _dyNameTarget = null; window._rbMvRepaint(); }
+        };
+        window.__dyRenameCommit = function() {
+          if (!_dyNaming) return;
+          const inp = document.getElementById('dy-name-in');
+          const v = (inp && inp.value) || '';
+          const m = _dyNameTarget;
+          _dyNaming = null; _dyNameTarget = null;
+          if (m && _rbDayRename(m, v) && !String(v).trim() && m.source_type === 'travel') m.status = 'free';
+          _rbDayRepaints();
+        };
+        window.__dyInviteKey = function(e, date) {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const v = String(e.target.value || '').trim();
+          if (!v) return;
+          // Naming a bare day IS typing the plan into the prompt (the
+          // standing rule, 2026-08-14): leave the Diary with her words in
+          // the prompt, scoped to the date, ready to send.
+          _rbTrack('diary_day_named', { source: 'list' });
+          if (window.__snClose) window.__snClose();
+          const ta = document.getElementById('cb-ta');
+          if (typeof _rbDiaryOn === 'function' && _rbDiaryOn() && typeof window._ikScopeDay === 'function') {
+            window._ikScopeDay(date);
+          } else if (ta) {
+            _cbAnchorDate = date; _cbIntent = 'dress-me';
+          }
+          if (ta) {
+            ta.value = v;
+            ta.dispatchEvent(new Event('input'));
+            if (typeof _cbAutoGrow === 'function') _cbAutoGrow(ta);
+            setTimeout(() => { ta.focus(); ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+          }
+        };
 
         // Tapping a cell opens the day console at that date; tapping a
         // band opens the parent artifact — the same objects the rail opens
