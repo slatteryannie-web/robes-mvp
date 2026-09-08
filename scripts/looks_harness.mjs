@@ -320,7 +320,7 @@ const browser = await chromium.launch(
   // state is deterministic.
   const bar = await page.evaluate(() => {
     const barEl = document.getElementById('rb-lk-bar');
-    const newBtn = barEl && Array.from(barEl.querySelectorAll('button')).find((b) => /\+ New/.test(b.textContent));
+        const newBtn = document.querySelector('#sn-headact button');
     // Sort and Refine are inert below four looks (2026-08-12), and this
     // fixture holds two — pad the stream so the controls are live, then put
     // the shelf back. The padding is legacy 'look' items: a daily look is a
@@ -348,7 +348,7 @@ const browser = await chromium.launch(
     window.__lkGo();
     return { newBtn: !!newBtn, axes, shown, none, restored, inertBefore, liveAfter };
   });
-  check('bar · the + New split button sits in the grid bar', bar.newBtn === true);
+  check('bar · + New look sits inline with the page eyebrow (Annie 2026-09-08)', bar.newBtn === true);
   check('bar · sort and Refine are inert below four looks and come live at four',
     bar.inertBefore === true && bar.liveAfter === true, JSON.stringify([bar.inertBefore, bar.liveAfter]));
   // ADR-002 §7: Light is deleted, and Vibe only renders once she has one —
@@ -1881,10 +1881,10 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     addCard: !!document.querySelector('#rb-lk-grid .rb-add-card'),
     moduleEmpty: !!document.querySelector('.rb-lk-empty'),
     sorts: Array.from(document.querySelectorAll('.rb-lk-sort')).map((b) => b.disabled),
-    stat: document.querySelector('.rb-lk-statline')?.textContent,
+    stat: document.querySelector('#rb-lk-allhead .rb-lk-allcount')?.textContent,
     // No travel strip on the Lookbook (Diary IA phase 2, 2026-09-08)
     holGone: !document.getElementById('rb-lk-hol') && !document.querySelector('.rb-lk-holcard'),
-    newLook: Array.from(document.querySelectorAll('#rb-lk-bar button')).map((b) => b.textContent),
+    newLook: Array.from(document.querySelectorAll('#sn-headact button')).map((b) => b.textContent),
   }));
   check('empty · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
   check('empty · a legacy look item still fills the shelf',
@@ -2115,8 +2115,8 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       kpInStream: /Umbro shorts/.test(document.getElementById('rb-lk-grid')?.textContent || ''),
       holGone: !document.getElementById('rb-lk-hol') && !document.querySelector('.rb-lk-holcard'),
       tripInStream: /Ibiza holiday edit/.test(document.getElementById('rb-lk-grid')?.textContent || ''),
-      newLook: /\+ New look/.test(document.getElementById('rb-lk-bar')?.textContent || '') && !/▾/.test(document.getElementById('rb-lk-bar')?.textContent || ''),
-      stat: document.querySelector('#rb-lk-bar .rb-lk-statline')?.textContent,
+      newLook: /\+ New look/.test(document.getElementById('sn-headact')?.textContent || '') && !/▾/.test(document.getElementById('sn-headact')?.textContent || ''),
+      stat: document.querySelector('#rb-lk-allhead .rb-lk-allcount')?.textContent,
       allRow: (() => {
         const row = document.querySelector('#rb-lk-allhead .rb-lk-allrow');
         return {
@@ -2151,7 +2151,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   const diaryAdd = await page.evaluate(async () => {
     window.__rbNavGo('diary');
     await new Promise((r) => setTimeout(r, 500));
-    const addBtn = document.querySelector('#sn-cal .rb-mv-add');
+    const addBtn = document.querySelector('#sn-headact .rb-mv-add');
     if (addBtn) addBtn.click();
     await new Promise((r) => setTimeout(r, 100));
     const menu = document.getElementById('rb-dy-addmenu');

@@ -148,6 +148,10 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
       grid: !!q('#sn-cal .rb-mv-cal'),
       segOn: qa('#sn-cal .rb-mv-seg button').map((b) => b.classList.contains('on')),
       nav: qa('#sn-cal .rb-mv-nav > button[aria-label]').map((b) => b.getAttribute('aria-label')),
+      addBesideEyebrow: !!q('#sn-headrow #sn-headact .rb-mv-add'),
+      segBelow: (() => { const t = q('#sn-cal .rb-mv-title'), sg = q('#sn-cal .rb-mv-modebar .rb-mv-seg'); return !!t && !!sg && sg.getBoundingClientRect().top > t.getBoundingClientRect().bottom; })(),
+      noChevrons: !q('#sn-cal .dy-trip-h svg:last-child path[d^="M4.8"]') && !q('#sn-cal .dy-tail svg'),
+      whiteCards: (() => { const c = q('#sn-cal .dy-card'); return !c || getComputedStyle(c).backgroundColor === 'rgb(255, 255, 255)'; })(),
       title: q('#sn-cal .rb-mv-title')?.textContent,
       invites: qa('#sn-cal .dy-row .dy-invite').map((el) => el.closest('.dy-row').dataset.date),
       invitePh: q('#sn-cal .dy-inv-in input')?.placeholder,
@@ -168,7 +172,7 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
     s.path === '/diary' && s.eyebrow === 'Diary' && s.diaryLit === true && s.list === true && s.grid === false && s.cap === false
       && JSON.stringify(s.segOn) === JSON.stringify([true, false]), JSON.stringify([s.path, s.eyebrow, s.diaryLit, s.list, s.grid, s.segOn]));
   check('list · the header is the month, ‹ ›, the List | Month toggle and +',
-    /\d{4}/.test(s.title || '') && JSON.stringify(s.nav) === JSON.stringify(['Previous month', 'Next month', 'Add']), JSON.stringify([s.title, s.nav]));
+    /\d{4}/.test(s.title || '') && JSON.stringify(s.nav) === JSON.stringify(['Previous month', 'Next month']) && s.addBesideEyebrow && s.segBelow, JSON.stringify([s.title, s.nav, s.addBesideEyebrow, s.segBelow]));
   check('list · today and the week ahead invite while empty ("Name the day" + the + door), nothing beyond',
     JSON.stringify(s.invites) === JSON.stringify(expInvites) && s.invitePh === 'Name the day', JSON.stringify([s.invites, expInvites, s.invitePh]));
   const pastExp = inMonth(PAST) ? [{ date: PAST, name: 'The black one', meta: 'Filed · 4 pieces', worn: true }] : [];
@@ -194,6 +198,7 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
       s.order.indexOf('trip:' + TRIP_ID) >= 0 && !s.invites.some((d) => tripDays.includes(d)) && s.order.slice().every((v, i, a) => i === 0 || v.startsWith('trip:') || a[i - 1].startsWith('trip:') || v > a[i - 1]),
       JSON.stringify(s.order));
   }
+  check('list · no chevrons on the list; cards are white on hairlines (the platform register)', s.noChevrons && s.whiteCards, JSON.stringify([s.noChevrons, s.whiteCards]));
   check('list · the tail says the rest of the month is unfiled and offers the next month',
     /^Nothing filed for the rest of [A-Z][a-z]+\.$/.test(s.tail || '') && /\d{4}/.test(s.tailBtn || ''), JSON.stringify([s.tail, s.tailBtn]));
 
@@ -401,7 +406,7 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
   check('empty · the design\'s empty state: "Nothing planned yet.", the line, Plan a trip',
     e.had && /Nothing planned/.test(e.h || '') && /yet\./.test(e.h || '') && /The diary keeps the dates; the lookbook keeps the looks\./.test(e.p || '') && e.cta === 'Plan a trip', JSON.stringify(e));
   check('empty · Plan a trip is the ONE dark fill and opens the travel intake over the Diary',
-    e.darkFills === 2 /* the CTA + the active List toggle */ && e.intake && e.diaryStill, JSON.stringify(e));
+    e.darkFills === 1 && e.intake && e.diaryStill, JSON.stringify(e));
   check('empty · the week\'s invitations still follow beneath', e.invites === expEmptyInvites, JSON.stringify([e.invites, expEmptyInvites]));
   check('empty · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
   await ctx.close();

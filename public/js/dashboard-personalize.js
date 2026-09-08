@@ -4665,6 +4665,7 @@
         <div style="padding:32px var(--s6,24px) 24px;max-width:var(--shell,1440px);margin:0 auto;box-sizing:border-box">
           <div id="sn-headrow" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 16px">
             <p id="sn-eyebrow" style="font-size:10px;font-weight:400;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint,#9A9082);margin:0">Lookbook</p>
+            <span id="sn-headact" style="display:inline-flex;align-items:center;gap:8px"></span>
           </div>
           <div id="sn-grid" style="display:none;gap:20px"></div>
           <div id="sn-empty" style="display:none;padding:80px 0;text-align:center">
@@ -9506,6 +9507,7 @@
 #rb-lk-hol{display:none;margin:0 0 26px}
 #rb-lk-allhead{display:none}
 .rb-lk-statline{font-family:var(--font-serif);font-style:italic;font-weight:300;font-size:17px;color:var(--ink-soft)}
+.rb-lk-allcount{font-family:var(--font-serif);font-style:italic;font-weight:300;font-size:14px;color:var(--ink-faint);margin-left:2px}
 .rb-lk-allrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
 #rb-lk-allhead .rb-lk-refwrap{margin:0 0 16px}
 .rb-lk-holrow{display:flex;gap:20px;overflow-x:auto;margin:0 calc(var(--s6,24px) * -1);padding:2px var(--s6,24px) 8px;scrollbar-width:none}
@@ -9831,7 +9833,8 @@
         if (!bar || !grid || !body) return;
         const allHead = document.getElementById('rb-lk-allhead');
         const detail = _lkView !== 'grid';
-        bar.style.display = detail || !any ? 'none' : 'flex';
+        bar.style.display = 'none';
+        (function() { const ha = document.getElementById('sn-headact'); if (ha && snEl && !snEl.classList.contains('rb-cal-on') && (detail || !any)) ha.innerHTML = ''; })();
         if (allHead) allHead.style.display = detail || !any ? 'none' : 'block';
         grid.style.display = detail || !any ? 'none' : 'grid';
         if (detail) {
@@ -9853,9 +9856,12 @@
         // Diary, 2026-09-08) beside the one creation door, + New look. The
         // split menu retired with the travel edit; a trip is added from
         // the Diary's + menu.
-        bar.innerHTML = '<span class="rb-lk-statline">' + _waEsc(_lkN(streamN, 'look')) + '</span>' +
-          '<span style="flex:1"></span>' +
-          '<button type="button" class="rb-lk-act" onclick="window.__lkNew()">+ New look</button>';
+        // The creation door sits inline with the page eyebrow (Annie's
+        // review 2026-09-08 — one header, no stat row); the count rides
+        // beside "All looks" below.
+        bar.innerHTML = ''; bar.style.display = 'none';
+        const headAct = document.getElementById('sn-headact');
+        if (headAct && snEl && !snEl.classList.contains('rb-cal-on')) headAct.innerHTML = '<button type="button" class="rb-lk-act" onclick="window.__lkNew()">+ New look</button>';
         // The All looks section header carries its own controls. They now
         // RENDER at every count and sit inert below four looks (FTUE pass
         // 2026-08-12, superseding "withheld until a Look exists") — a
@@ -9869,6 +9875,7 @@
           const inert = sortLive ? '' : ' disabled';
           allHead.innerHTML = '<div class="rb-lk-allrow">' +
             '<span class="rb-lk-sec" style="margin:0">All looks</span>' +
+            '<span class="rb-lk-allcount">' + _waEsc(_lkN(streamN, 'look')) + '</span>' +
             '<span style="flex:1"></span>' +
             '<button type="button" class="rb-lk-sort"' + inert +
               (sortLive ? ' onclick="window.__lkSort()"' : '') + '>' +
@@ -14898,14 +14905,15 @@
 #tv-result-page .tvm-fact svg:last-child{width:12px;height:12px;stroke:var(--ink-faint)}
 #tv-result-page .tvm-fact .fb{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 #tv-result-page .tvm-fact .fl{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);line-height:1}
-#tv-result-page .tvm-fact .fv{font-size:13px;line-height:1.25;color:var(--ink)}
-#tv-result-page .tvm-fact .fs{color:var(--ink-soft)}
-#tv-result-page .tvm-fact .fv.wx{flex:1;min-width:0;font-size:11px;line-height:1.3;color:var(--ink-soft)}
-#tv-result-page .tvm-fact .fv.wx em{font-family:var(--font-serif);font-style:italic;font-size:13px}
+#tv-result-page .tvm-fact .fv{font-family:var(--font-serif);font-size:17px;line-height:1.2;color:var(--ink)}
+#tv-result-page .tvm-fact .fs{font-style:italic;color:var(--ink-soft)}
+#tv-result-page .tvm-fact .fv.wx{flex:1;min-width:0;font-size:15px;line-height:1.3;color:var(--ink-soft)}
+#tv-result-page .tvm-fact .fv.wx em{font-style:italic}
 #tv-result-page .tvm-fact.fc .fl{flex:none;margin-left:auto}
 #tv-result-page .tvm-tagrow{display:flex;align-items:center;gap:10px;margin-top:14px}
 #tv-result-page .tvm-tag{display:inline-flex;align-items:center;padding:8px 14px;border-radius:100px;background:var(--rose-bg);border:0.5px solid rgba(142,112,119,0.2);font-family:var(--font-serif);font-style:italic;font-size:14px;color:var(--rose);cursor:pointer}
-#tv-result-page .tvm-editbtn{display:inline-flex;align-items:center;padding:8px 16px;border:0.5px solid var(--rule-mid);border-radius:100px;background:#fff;font-size:11.5px;color:var(--ink);cursor:pointer;font-family:inherit;transition:border-color .15s}
+#tv-result-page .tvm-editbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:0.5px solid var(--rule-mid);border-radius:50%;background:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;transition:border-color .15s}
+#tv-result-page .tvm-editbtn svg{width:15px;height:15px;stroke:var(--ink-soft);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 #tv-result-page .tvm-editbtn:hover{border-color:rgba(32,32,33,0.3)}
 #tv-result-page .tvm-rule{height:0.5px;background:var(--rule);margin:22px 0 24px}
 #tv-result-page .tvm-sec{margin-bottom:38px}
@@ -14915,18 +14923,18 @@
 #tv-result-page .tvm-secact{margin-left:auto;display:flex;gap:8px;align-items:center;position:relative}
 #tv-result-page .tvm-addbtn{display:inline-flex;align-items:center;gap:6px;border:0.5px solid rgba(32,32,33,0.25);border-radius:100px;padding:9px 18px;font-size:12px;background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;transition:background .15s}
 #tv-result-page .tvm-addbtn:hover{background:var(--cream-100,#F5F1EA)}
-#tv-result-page .tvw-grid{display:flex;flex-direction:column;max-width:760px;background:var(--cream-100);border:1px solid var(--rule-mid);border-radius:var(--rad-sm);overflow:hidden}
+#tv-result-page .tvw-grid{display:flex;flex-direction:column;max-width:760px;background:#fff;border:1px solid var(--rule-mid);border-radius:var(--rad-sm);overflow:hidden}
 #tv-result-page .tvw-card{position:relative;display:flex;gap:12px;padding:14px 14px 14px 12px;border-bottom:0.5px solid var(--rule-mid);background:transparent;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s;box-sizing:border-box}
 #tv-result-page .tvw-card:last-child{border-bottom:none;padding-bottom:16px}
-#tv-result-page .tvw-card:hover{background:rgba(255,255,255,0.5)}
+#tv-result-page .tvw-card:hover{background:var(--cream-100)}
 #tv-result-page .tvw-card.bare .tvw-g .n{color:var(--ink-faint)}
-#tv-result-page .tvw-card.sel{background:#fff;box-shadow:inset 3px 0 0 var(--ink)}
+#tv-result-page .tvw-card.sel{background:var(--cream-100);box-shadow:inset 3px 0 0 var(--ink)}
 #tv-result-page .tvw-g{width:34px;flex:none;display:flex;flex-direction:column;align-items:center;text-align:center}
 #tv-result-page .tvw-g .wd{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);line-height:1}
 #tv-result-page .tvw-g .n{font-family:var(--font-serif);font-size:24px;font-weight:300;line-height:1.05;margin:3px 0;color:var(--ink)}
 #tv-result-page .tvw-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-right:22px}
 #tv-result-page .tvw-card .d{display:none}
-#tv-result-page .tvw-lk{display:flex;align-items:center;gap:12px;background:#fff;border-radius:4px;padding:8px 12px 8px 8px}
+#tv-result-page .tvw-lk{display:flex;align-items:center;gap:12px;background:var(--cream-100);border:0.5px solid var(--rule);border-radius:4px;padding:8px 12px 8px 8px}
 #tv-result-page .tvw-lk .th{width:38px;height:48px;border-radius:2px;background:var(--cream-300);flex:none;overflow:hidden;display:block}
 #tv-result-page .tvw-lk .th img{width:100%;height:100%;object-fit:cover;display:block}
 #tv-result-page .tvw-lk .lb{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
@@ -16399,12 +16407,9 @@ body>*:not(#tv-result-page){display:none !important}
                 <div class="tvm-eyebrow">${_waEsc(_rbTrackCfg('travel').artifact.eyebrow)}</div>
                 <div style="display:flex;align-items:flex-start;gap:10px;min-width:0">
                   <h1 class="tvm-title" id="tv-headline" style="min-width:0">${_waEsc(data.headline || ('A trip to ' + (data.destination || 'somewhere lovely') + '.'))}</h1>
-                  <button class="rb-rename-tbtn" title="Rename" style="margin-top:6px" onclick="window.__rbRename&&window.__rbRename('tv')"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button>
+                  <button class="rb-rename-tbtn tvm-editbtn tv-noprint" title="Edit details" aria-label="Edit details" style="margin-top:6px" onclick="window.__tvEditDetails()"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button>
                 </div>
                 <div class="tvm-factwrap" id="tv-mastmeta">${_tvMastMetaHtml(data)}</div>
-              </div>
-              <div class="tv-noprint" style="flex-shrink:0;padding-bottom:6px">
-                <button class="tvm-editbtn" onclick="window.__tvEditDetails()">Edit details</button>
               </div>
             </header>
             ${data.fallback ? `<p style="font-size:12px;color:var(--ink-faint);font-style:italic;margin:12px 0 0">Robes couldn’t quite read the brief, so it’s packed you for a lovely week away instead.</p>` : ''}
@@ -18853,7 +18858,7 @@ body>*:not(#tv-result-page){display:none !important}
           const tvOpt = document.createElement('button');
           tvOpt.id = 'cb-addopt-tv';
           tvOpt.className = 'hp-addopt';
-          tvOpt.innerHTML = `<svg viewBox="0 0 24 24"><path d="M2.5 13l19-6.5-3.2 5.4-5.8 2.1-3.4 6.5-2.1-5.8z"></path></svg><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.25"><span>Add a travel edit</span><span style="font-family:'Cormorant',Georgia,serif;font-style:italic;font-size:11px;color:var(--ink-faint)">Where are we packing for?</span></span>`;
+          tvOpt.innerHTML = `<svg viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.25"><span>Add a travel edit</span><span style="font-family:'Cormorant',Georgia,serif;font-style:italic;font-size:11px;color:var(--ink-faint)">Where are we packing for?</span></span>`;
           tvOpt.onclick = function() { addMenu.classList.remove('open'); window.__lkNewHoliday && window.__lkNewHoliday(); };
           addMenu.appendChild(tvOpt);
         }
@@ -20377,7 +20382,8 @@ body>*:not(#tv-result-page){display:none !important}
 .rb-mv-nav{display:flex;gap:6px}
 .rb-mv-nav button{width:32px;height:32px;border:0.5px solid rgba(32,32,33,0.18);border-radius:50%;background:#fff;color:#6E6A64;font-size:14px;cursor:pointer;line-height:1}
 .rb-mv-nav button:hover{border-color:var(--ink,#202021);color:var(--ink,#202021)}
-.rb-mv-nav .rb-mv-add{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:0}
+.rb-mv-add{width:34px;height:34px;border:0.5px solid rgba(32,32,33,0.18);border-radius:50%;background:#fff;color:#6E6A64;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:border-color .15s,color .15s}
+.rb-mv-add:hover{border-color:var(--ink,#202021);color:var(--ink,#202021)}
 #rb-dy-addmenu{position:fixed;inset:0;z-index:930}
 #rb-dy-addmenu .card{position:absolute;min-width:216px;background:#fff;border:1px solid var(--rule-mid,rgba(32,32,33,0.14));border-radius:var(--rad-sm,8px);box-shadow:0 10px 32px rgba(32,32,33,0.12);padding:6px 0;display:flex;flex-direction:column}
 #rb-dy-addmenu .card button{display:flex;align-items:flex-start;gap:11px;border:none;background:transparent;padding:10px 16px;cursor:pointer;font-family:inherit;text-align:left;color:var(--ink,#202021)}
@@ -20426,10 +20432,11 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 @media(max-width:767px){.rb-mc{aspect-ratio:1;padding:5px;border-radius:var(--rad-sm)}.rb-mc .n{font-size:13px}.rb-mc .act{font-size:10px}.rb-mband{font-size:9px;padding:0 6px;height:14px}.rb-mv-title{font-size:26px}}
 /* ── Diary list view (phase 3) ── */
 .rb-mv-nav{align-items:center}
-.rb-mv-seg{display:inline-flex;gap:2px;padding:3px;border:0.5px solid rgba(32,32,33,0.18);border-radius:100px;margin-left:6px}
-.rb-mv-seg button{width:30px;height:24px;border:none;border-radius:100px;background:transparent;color:var(--ink-soft,#6E6A64);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
-.rb-mv-seg button.on{background:var(--ink,#202021);color:#fff}
-.rb-mv-seg button svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
+.rb-mv-modebar{display:flex;align-items:center;margin:-6px 0 20px}
+.rb-mv-seg{display:inline-flex;gap:2px;padding:3px;border:none;border-radius:100px;background:var(--cream-100,#F7F4EE)}
+.rb-mv-seg button{border:none;border-radius:100px;background:transparent;color:var(--ink-soft,#6E6A64);display:inline-flex;align-items:center;gap:7px;cursor:pointer;padding:6px 14px;font-family:inherit;font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;transition:background .15s,color .15s}
+.rb-mv-seg button.on{background:#fff;color:var(--ink,#202021);box-shadow:0 1px 2px rgba(32,32,33,0.06)}
+.rb-mv-seg button svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
 .rb-mv-cap{font-size:11px;line-height:1.5;color:var(--ink-faint,#9A9082);text-align:center;margin:18px 0 0}
 .dy-list{display:flex;flex-direction:column;gap:2px;max-width:760px}
 .dy-row{display:flex;gap:14px;padding:10px 0}
@@ -20447,7 +20454,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 .dy-inv-add{flex:none;border:none;background:transparent;padding:0 18px;color:var(--ink-faint,#9A9082);cursor:pointer;border-radius:0 var(--rad-sm,8px) var(--rad-sm,8px) 0;display:flex;align-items:center;transition:background .15s,color .15s}
 .dy-inv-add:hover{background:var(--cream-100,#F7F4EE);color:var(--ink,#202021)}
 .dy-inv-add svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round}
-.dy-card{flex:1;min-width:0;background:var(--cream-100,#F7F4EE);border:1px solid var(--rule,#EDE6D8);border-radius:var(--rad-sm,8px);overflow:hidden}
+.dy-card{flex:1;min-width:0;background:#fff;border:1px solid var(--rule,#EDE6D8);border-radius:var(--rad-sm,8px);overflow:hidden}
 .dy-card-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:0.5px solid var(--rule-mid,rgba(32,32,33,0.14))}
 .dy-card-h h3{flex:1;min-width:0;font-family:'Cormorant',Georgia,serif;font-size:19px;font-weight:400;line-height:1.25;margin:0;color:var(--ink,#202021)}
 .dy-card-t{flex:1;min-width:0;text-align:left;border:none;background:none;padding:0;font-family:'Cormorant',Georgia,serif;font-size:19px;line-height:1.25;color:var(--ink,#202021);cursor:text}
@@ -20458,8 +20465,8 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 .dy-pen svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
 .dy-name-in{flex:1;min-width:0;border:none;border-bottom:1px solid var(--ink,#202021);background:transparent;padding:2px 0;font-family:'Cormorant',Georgia,serif;font-size:19px;color:var(--ink,#202021);outline:none}
 .dy-card-b{padding:10px;display:flex;flex-direction:column;gap:8px}
-.dy-look{display:flex;align-items:center;gap:12px;width:100%;background:#fff;border:none;border-radius:5px;padding:8px 12px 8px 8px;cursor:pointer;text-align:left;font-family:inherit;transition:box-shadow .15s}
-.dy-look:hover{box-shadow:0 1px 3px rgba(32,32,33,0.08)}
+.dy-look{display:flex;align-items:center;gap:12px;width:100%;background:var(--cream-100,#F7F4EE);border:0.5px solid var(--rule,#EDE6D8);border-radius:5px;padding:8px 12px 8px 8px;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s}
+.dy-look:hover{border-color:var(--rule-mid,rgba(32,32,33,0.14))}
 .dy-th{width:40px;height:52px;border-radius:3px;background:var(--cream-300,#E7E0CF);flex:none;overflow:hidden;display:block}
 .dy-th img{width:100%;height:100%;object-fit:cover;display:block}
 .dy-look-b{flex:1;min-width:0}
@@ -20468,11 +20475,11 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 .dy-chk{width:15px;height:15px;border-radius:100px;background:var(--ink,#202021);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .dy-chk svg{width:8px;height:8px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .dy-addlook{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:1px dashed var(--cream-400,#C9BCA6);background:none;border-radius:5px;padding:11px;cursor:pointer;font-size:11px;color:var(--ink-faint,#9A9082);font-family:inherit;transition:background .15s,color .15s}
-.dy-addlook:hover{background:#fff;color:var(--ink,#202021)}
+.dy-addlook:hover{background:var(--cream-100,#F7F4EE);color:var(--ink,#202021)}
 .dy-addlook svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round}
-.dy-trip{flex:1;min-width:0;background:var(--cream-100,#F7F4EE);border:1px solid var(--rule-mid,rgba(32,32,33,0.14));border-radius:var(--rad-card,14px);overflow:hidden}
-.dy-trip-h{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:var(--cream-200,#F1EDE6);border:none;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s}
-.dy-trip-h:hover{background:var(--cream-300,#E7E0CF)}
+.dy-trip{flex:1;min-width:0;background:#fff;border:1px solid var(--rule-mid,rgba(32,32,33,0.14));border-radius:var(--rad-card,14px);overflow:hidden}
+.dy-trip-h{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:var(--cream-100,#F7F4EE);border:none;border-bottom:0.5px solid var(--rule-mid,rgba(32,32,33,0.14));cursor:pointer;text-align:left;font-family:inherit;transition:background .15s}
+.dy-trip-h:hover{background:var(--cream-200,#F1EDE6)}
 .dy-trip-h h3{flex:1;min-width:0;font-family:'Cormorant',Georgia,serif;font-size:20px;font-weight:400;line-height:1.2;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink,#202021)}
 .dy-trip-d{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft,#6E6A64);flex:none}
 .dy-trip-h svg{flex:none;width:14px;height:14px;stroke:var(--ink-soft,#6E6A64);fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
@@ -20496,7 +20503,8 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 .dy-tadd:hover{color:var(--ink,#202021)}
 .dy-tadd svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round}
 .dy-row.past{padding:8px 0}
-.dy-past{flex:1;min-width:0;display:flex;align-items:center;gap:13px;background:var(--cream-100,#F7F4EE);border:none;border-radius:var(--rad-sm,8px);padding:12px 14px;cursor:pointer;text-align:left;font-family:inherit}
+.dy-past{flex:1;min-width:0;display:flex;align-items:center;gap:13px;background:#fff;border:1px solid var(--rule,#EDE6D8);border-radius:var(--rad-sm,8px);padding:12px 14px;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s}
+.dy-past:hover{border-color:var(--rule-mid,rgba(32,32,33,0.14))}
 .dy-past .dy-th{width:44px;height:56px;border-radius:5px;background:var(--cream-200,#F1EDE6);border:0.5px solid var(--rule,#EDE6D8)}
 .dy-past-b{flex:1;min-width:0}
 .dy-past-n{display:block;font-family:'Cormorant',Georgia,serif;font-size:17px;line-height:1.25;color:var(--ink,#202021)}
@@ -20510,7 +20518,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 .dy-empty h3{font-family:'Cormorant',Georgia,serif;font-size:32px;font-weight:300;line-height:1.15;margin:0;color:var(--ink,#202021)}
 .dy-empty p{font-size:13px;line-height:1.7;color:var(--ink-soft,#6E6A64);margin:16px 0 0;max-width:300px}
 .dy-empty-cta{margin-top:28px;background:var(--ink,#202021);color:#fff;border:none;border-radius:100px;padding:14px 28px;cursor:pointer;font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-family:inherit;font-weight:500}
-@media(max-width:767px){.dy-list{max-width:none}.dy-row{gap:12px}.dy-tday{padding:12px 12px 12px 10px}.rb-mv-head{align-items:center;gap:10px}.rb-mv-title{font-size:24px}.rb-mv-nav{gap:4px}.rb-mv-nav button{width:28px;height:28px;font-size:13px}.rb-mv-seg{margin-left:2px;padding:2px}.rb-mv-seg button{width:26px;height:22px}}`;
+@media(max-width:767px){.dy-list{max-width:none}.dy-row{gap:12px}.dy-tday{padding:12px 12px 12px 10px}.rb-mv-head{align-items:center;gap:10px}.rb-mv-title{font-size:26px}.rb-mv-nav{gap:4px}.rb-mv-nav button{width:30px;height:30px;font-size:13px}}`;
           document.head.appendChild(st);
         }
 
@@ -20531,6 +20539,10 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           const calOn = v === 'cal';
           const ey = document.getElementById('sn-eyebrow');
           if (ey) ey.textContent = calOn ? 'Diary' : 'Lookbook';
+          // The + sits beside the eyebrow (Annie's review 2026-09-08)
+          const ha = document.getElementById('sn-headact');
+          if (ha && calOn) ha.innerHTML = '<button type="button" class="rb-mv-add" onclick="window.__rbDiaryAddMenu(event)" aria-label="Add" title="Add"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M7 2.2v9.6M2.2 7h9.6"/></svg></button>';
+          else if (ha) ha.innerHTML = '';
           // Class, not inline styles — async repaints (snRenderPage after
           // _lbCloudPull) re-set the grid's inline display underneath us.
           snPage.classList.toggle('rb-cal-on', calOn);
@@ -20558,7 +20570,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
               '<svg width="15" height="15" viewBox="0 0 16 16"><path d="M4.5 2.2h7v11.6l-3.5-2.6-3.5 2.6z"/></svg>' +
               '<span><span class="t">Add a look</span><span class="s" style="display:block">Lookbook · ' + _lkN(n, 'look') + '</span></span></button>' +
             '<button onclick="document.getElementById(\'rb-dy-addmenu\').remove();window.__lkNewHoliday()">' +
-              '<svg width="15" height="15" viewBox="0 0 16 16"><path d="M1.6 8.7l12.8-4.4-2.1 3.6-3.9 1.4-2.3 4.4-1.4-3.9z"/></svg>' +
+              '<svg width="15" height="15" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>' +
               '<span><span class="t">Add a travel edit</span><span class="s" style="display:block">Where are we packing for?</span></span></button>' +
             '</div>';
           document.body.appendChild(pop);
@@ -20667,10 +20679,9 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
               <h2 class="rb-mv-title">${_waEsc(monthName)}</h2>
               <div class="rb-mv-nav">
                 <button onclick="window.__mvNav(-1)" aria-label="Previous month">‹</button><button onclick="window.__mvNav(1)" aria-label="Next month">›</button>
-                <span class="rb-mv-seg" role="group" aria-label="View"><button class="${_dyMode === 'list' ? 'on' : ''}" onclick="window.__dySetMode('list')" title="List" aria-label="List">${ico.list}</button><button class="${_dyMode === 'month' ? 'on' : ''}" onclick="window.__dySetMode('month')" title="Month" aria-label="Month">${ico.month}</button></span>
-                <button class="rb-mv-add" onclick="window.__rbDiaryAddMenu(event)" aria-label="Add" title="Add"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M7 2.2v9.6M2.2 7h9.6"/></svg></button>
               </div>
-            </div>`;
+            </div>
+            <div class="rb-mv-modebar"><span class="rb-mv-seg" role="group" aria-label="View"><button class="${_dyMode === 'list' ? 'on' : ''}" onclick="window.__dySetMode('list')" aria-label="List">${ico.list}<span>List</span></button><button class="${_dyMode === 'month' ? 'on' : ''}" onclick="window.__dySetMode('month')" aria-label="Month">${ico.month}<span>Month</span></button></span></div>`;
         }
         function _mvPaint(g, rows, sources) {
           const today = _pdLocalISO();
@@ -20795,7 +20806,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           pen: '<svg viewBox="0 0 16 16"><path d="M11.2 2.6l2.2 2.2-8 8-3 .8.8-3 8-8z"/></svg>',
           plus: '<svg viewBox="0 0 12 12"><path d="M6 1.8v8.4M1.8 6h8.4"/></svg>',
           chk: '<svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg>',
-          bag: '<svg viewBox="0 0 16 16"><path d="M2.5 5.5h11l-.8 8H3.3z"/><path d="M5.5 5.5V4.3a2.5 2.5 0 0 1 5 0v1.2"/></svg>',
+          bag: '<svg viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>',
           chev: '<svg viewBox="0 0 12 12"><path d="M4.8 2.6L8.2 6l-3.4 3.4"/></svg>',
           pin: '<svg viewBox="0 0 16 16"><path d="M8 14.5s4.5-4.2 4.5-8a4.5 4.5 0 0 0-9 0c0 3.8 4.5 8 4.5 8z"/><circle cx="8" cy="6.5" r="1.6"/></svg>',
         };
@@ -20890,7 +20901,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
               : (past ? '' : `<button type="button" class="dy-tday-t none" onclick="window.__dyRename('${date}','${k}')">name the day, then pin a look</button>`);
             return `<div class="dy-tday${past ? ' past' : ''}" data-date="${date}">${_dyGutter(date, true, past)}<div class="dy-tday-b">${titleHtml}${looks.map(_dyLookRow).join('')}${(!looks.length && !past) ? `<button type="button" class="dy-tadd" onclick="window.__dyOpen('${k}')">${_DY_SVG.plus}<span>Add</span></button>` : ''}</div></div>`;
           }).join('');
-          return `<div class="dy-row dy-triprow" data-trip="${_waEsc(String(sid))}"><div class="dy-trip"><button type="button" class="dy-trip-h" onclick="window.__snOpenItem(${Number(sid)})">${_DY_SVG.bag}<h3>${_waEsc(title)}</h3>${range ? `<span class="dy-trip-d">${_waEsc(range)}</span>` : ''}${_DY_SVG.chev}</button>${wxLine ? `<div class="dy-trip-wx">${_DY_SVG.pin}<span>${wxLine}</span></div>` : ''}${days}</div></div>`;
+          return `<div class="dy-row dy-triprow" data-trip="${_waEsc(String(sid))}"><div class="dy-trip"><button type="button" class="dy-trip-h" onclick="window.__snOpenItem(${Number(sid)})">${_DY_SVG.bag}<h3>${_waEsc(title)}</h3>${range ? `<span class="dy-trip-d">${_waEsc(range)}</span>` : ''}</button>${wxLine ? `<div class="dy-trip-wx">${_DY_SVG.pin}<span>${wxLine}</span></div>` : ''}${days}</div></div>`;
         }
         function _dyListHtml(g, rows, sources, today) {
           _dyMoments = {};
@@ -20931,7 +20942,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
             html += past ? _dyPastRow(date, dayW, eveW, dc) : _dyDayCard(date, dayW, eveW, dc, today);
             lastShown = date;
           }
-          html += `<div class="dy-tail">${lastShown === g.last ? '' : `<p>Nothing filed for the rest of ${_waEsc(monthLong)}.</p>`}<button type="button" onclick="window.__mvNav(1)"><span>${_waEsc(nextName)}</span>${_DY_SVG.chev}</button></div></div>`;
+          html += `<div class="dy-tail">${lastShown === g.last ? '' : `<p>Nothing filed for the rest of ${_waEsc(monthLong)}.</p>`}<button type="button" onclick="window.__mvNav(1)"><span>${_waEsc(nextName)}</span></button></div></div>`;
           return html;
         }
         // Openers + writes — the list never invents a path: a look row

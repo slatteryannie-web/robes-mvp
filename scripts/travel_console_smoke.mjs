@@ -121,7 +121,7 @@ await page.waitForTimeout(300);
 ok(await page.locator('#tv-result-page .tvm-seg').count() === 0, 'no tab segment — the page is one scroll');
 ok(await page.locator('#tv-sec-week').isVisible() && await page.locator('#tv-sec-looks').isVisible() && await page.locator('#tv-sec-capsule').isVisible(), 'week, looks and capsule sections all on one page');
 ok((await page.locator('#tv-headline').innerText()).includes('A long weekend in Lahinch'), 'title renders');
-ok(await page.locator('#tv-result-page .tvm-editbtn', { hasText: 'Edit details' }).count() === 1, 'Edit details door on the masthead');
+ok(await page.locator('#tv-result-page .tvm-editbtn[aria-label="Edit details"]').count() === 1 && await page.locator('#tv-result-page .tvm-mast .rb-rename-tbtn').count() === 1, 'ONE pen on the masthead opens Edit details (the title rename pencil retired, Annie 2026-09-08)');
 ok((await page.locator('#tv-mastmeta').innerText()).includes('Chic, cool'), 'vibe pill renders');
 ok(await page.locator('#tv-weekstrip .tvw-card').count() === 4, 'week strip has one card per trip day');
 ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-weekstrip')).flexWrap) !== 'wrap', 'week strip stays on one line (scrolls, never wraps)');
