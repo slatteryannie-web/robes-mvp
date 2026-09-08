@@ -4657,7 +4657,10 @@
       window.__snOpen = function() {
         const av = document.getElementById('av-menu');
         if (av) av.classList.remove('open');
+        window._rbNavOrigin = 'lookbook';
         document.getElementById('sn-page').style.display = 'block';
+        const ey = document.getElementById('sn-eyebrow');
+        if (ey) ey.textContent = 'Lookbook';
         // The page always reopens on the Looks view's landing grid
         // (wardrobe convention — no sub-sub-nav to climb back out of)
         _lkView = 'grid'; _lkActive = null;
@@ -5636,9 +5639,6 @@
         // look is the one act that fills a Lookbook, so it is the only one
         // on offer. (_snPaintWays survives for the record and for the
         // dashboard hook, but is no longer reached from here.)
-        // The Diary is visible but inert until something exists to diarise.
-        const dbtn = document.querySelector('#sn-viewseg button[data-mv="cal"]');
-        if (dbtn) dbtn.classList.toggle('inert', !hasContent);
         _lkPaint();
       }
 
@@ -17706,18 +17706,29 @@ body>*:not(#tv-result-page){display:none !important}
             if (wp.classList.contains('visible')) wp.classList.remove('visible');
           }
         }
+        // The list a detail climbs back to. The Diary is its own
+        // destination (Diary tab, 2026-09-08), so a day opened from the
+        // Diary belongs to the Diary and a look opened from the Lookbook
+        // belongs to the Lookbook — __snOpen / __rbDiaryOpen stamp it, and
+        // the back pill + the lit tab read it while a detail hides both
+        // pages underneath.
+        window._rbNavOrigin = window._rbNavOrigin || 'lookbook';
         window.__rbNavGo = function(dest) {
           if (dest === 'home') {
             const wm = document.getElementById('nav-wordmark');
             if (wm && wm.onclick) wm.onclick();
-          } else if (dest === 'back' || dest === 'lookbook') {
-            // Back climbs to the list the detail lives in — the Lookbook.
+          } else if (dest === 'back') {
+            // Back climbs to the list the detail lives in.
             _closeOverlays();
             _closeWardrobe(); // its patched open would re-hide sn-page, so close first
+            if (window._rbNavOrigin === 'diary' && window.__rbDiaryOpen) window.__rbDiaryOpen();
+            else window.__snOpen && window.__snOpen();
+          } else if (dest === 'lookbook') {
+            _closeOverlays();
+            _closeWardrobe();
             window.__snOpen && window.__snOpen();
           } else if (dest === 'diary' || dest === 'calendar') {
-            // 'calendar' survives as a legacy alias — the Diary lives
-            // inside the Lookbook now (IA refinement 2026-08-10)
+            // 'calendar' survives as a legacy alias
             _closeOverlays();
             _closeWardrobe();
             window.__rbDiaryOpen && window.__rbDiaryOpen();
@@ -17734,41 +17745,53 @@ body>*:not(#tv-result-page){display:none !important}
         };
         const tnW = document.getElementById('rb-tn-wardrobe');
         const tnL = document.getElementById('rb-tn-lookbook');
+        const tnD = document.getElementById('rb-tn-diary');
         const tnI = document.getElementById('rb-tn-inspiration');
         const dkH = document.getElementById('rb-dock-home');
         const dkW = document.getElementById('rb-dock-wardrobe');
         const dkL = document.getElementById('rb-dock-lookbook');
+        const dkD = document.getElementById('rb-dock-diary');
         const dkI = document.getElementById('rb-dock-inspiration');
         const backPill = document.getElementById('rb-backpill');
+        const backLabel = document.getElementById('rb-backpill-label');
         function _rbNavSync() {
           const snEl = document.getElementById('sn-page');
           const snOpen = !!(snEl && snEl.style.display === 'block');
+          const diaryOpen = snOpen && snEl.classList.contains('rb-cal-on');
           const inEl = document.getElementById('rb-insp-page');
           const inOpen = !!(inEl && inEl.style.display === 'block');
           const wOpen = _wardrobeOpen();
           const detail = _detailOpen();
-          // The Diary is a view inside the Lookbook — the Lookbook stays lit.
+          // The Diary is its own destination (2026-09-08): the Diary page
+          // lights Diary, the looks view lights Lookbook, and a detail
+          // lights whichever list it was opened from (_rbNavOrigin).
           // A key-piece result is Inspiration's (key pieces moved off the
           // Lookbook, 2026-08-10), so it lights Inspiration, not Lookbook.
           const kpOpen = !!(kpResultPage && kpResultPage.style.display !== 'none');
           // The piece page lights the tab of the door she came through: the
           // wardrobe (or its wishlist), else whatever look surface is under it.
           const pc = window.__rbPieceCtx ? window.__rbPieceCtx() : null;
+          const origin = window._rbNavOrigin === 'diary' ? 'diary' : 'lookbook';
           const active = (pc && pc.from !== 'look') || wOpen ? 'wardrobe'
             : (inOpen || kpOpen) ? 'inspiration'
-            : (snOpen || detail) ? 'lookbook' : 'home';
+            : diaryOpen ? 'diary'
+            : snOpen ? 'lookbook'
+            : detail ? origin : 'home';
           if (tnW) tnW.classList.toggle('active', active === 'wardrobe');
           if (tnL) tnL.classList.toggle('active', active === 'lookbook');
+          if (tnD) tnD.classList.toggle('active', active === 'diary');
           if (tnI) tnI.classList.toggle('active', active === 'inspiration');
           if (dkH) dkH.classList.toggle('active', active === 'home');
           if (dkW) dkW.classList.toggle('active', active === 'wardrobe');
           if (dkL) dkL.classList.toggle('active', active === 'lookbook');
+          if (dkD) dkD.classList.toggle('active', active === 'diary');
           if (dkI) dkI.classList.toggle('active', active === 'inspiration');
           // Mobile detail screens: the back pill replaces the wordmark line,
           // and Share rises into the header (the footer copy hides ≤640px).
           // The piece page carries its own back pill — the nav's stands down.
           const showPill = detail && !pc && window.matchMedia('(max-width:767px)').matches;
           if (backPill) backPill.style.display = showPill ? 'inline-flex' : 'none';
+          if (backLabel) backLabel.textContent = origin === 'diary' ? 'Diary' : 'Lookbook';
           const shareBtn = document.getElementById('rb-share-btn');
           if (shareBtn) {
             // The console surfaces (Daily/Weekly/Travel) carry their own
@@ -20192,11 +20215,6 @@ body>*:not(#tv-result-page){display:none !important}
 /* A cream well, the active segment lifting to white (softening pass
    2026-08-12) — elevation comes from surface change, not a black fill.
    Black is reserved for the one real commitment on each screen. */
-#sn-viewseg{display:inline-flex;gap:2px;padding:3px;border:none;border-radius:100px;background:var(--cream-100)}
-#sn-viewseg button{border:none;background:transparent;padding:6px 16px;border-radius:100px;font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,color .15s}
-#sn-viewseg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(32,32,33,0.06)}
-/* Visible but inert until there is something to diarise */
-#sn-viewseg button.inert{color:var(--cream-400);cursor:default}
 #sn-cal{display:none}
 #sn-page.rb-cal-on #sn-grid{display:none!important}
 #sn-page.rb-cal-on #sn-empty{display:none!important}
@@ -20248,31 +20266,13 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           document.head.appendChild(st);
         }
 
-        // Mount: the Looks | Diary segment in the headrow, the diary
-        // surface before #sn-grid. The Diary lives INSIDE the Lookbook
-        // (IA refinement 2026-08-10 — Calendar renamed Diary, the
-        // top-level tab retired for Inspiration).
+        // Mount: the diary surface before #sn-grid. The Diary is its own
+        // nav destination (Diary tab, 2026-09-08 — supersedes the 2026-08-10
+        // Looks | Diary segment inside the Lookbook, which is retired); it
+        // still rides the #sn-page shell underneath so nothing remounts,
+        // and the rb-cal-on class is what tells the two apart.
         const headRow = snPage.querySelector('#sn-headrow');
         if (!headRow) return;
-        const seg = document.createElement('div');
-        seg.id = 'sn-viewseg';
-        seg.innerHTML = `<button class="on" data-mv="grid">Looks</button><button data-mv="cal">Diary</button>`;
-        headRow.appendChild(seg);
-        seg.addEventListener('click', e => {
-          const b = e.target.closest('button[data-mv]');
-          if (!b) return;
-          // Inert at zero looks — the tap simply leaves her on Looks.
-          if (b.dataset.mv === 'cal') {
-            if (!b.classList.contains('inert')) window.__rbDiaryOpen();
-            return;
-          }
-          // Tapping Looks always lands the landing grid — the segment is
-          // the way back out of the Diary or a stale detail (no sub-sub-nav)
-          _lkView = 'grid'; _lkActive = null;
-          _mvSetView('grid');
-          window.rbSetCrumb && window.rbSetCrumb([{ label: 'Lookbook' }]);
-          window._rbNav && window._rbNav('/lookbook');
-        });
         const cal = document.createElement('div');
         cal.id = 'sn-cal';
         const gridEl = snPage.querySelector('#sn-grid');
@@ -20280,8 +20280,9 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
 
         function _mvSetView(v) {
           _mvView = v;
-          seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mv === v));
           const calOn = v === 'cal';
+          const ey = document.getElementById('sn-eyebrow');
+          if (ey) ey.textContent = calOn ? 'Diary' : 'Lookbook';
           // Class, not inline styles — async repaints (snRenderPage after
           // _lbCloudPull) re-set the grid's inline display underneath us.
           snPage.classList.toggle('rb-cal-on', calOn);
@@ -20305,12 +20306,10 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
         window.__rbDiaryOpen = function() {
           const av = document.getElementById('av-menu');
           if (av) av.classList.remove('open');
+          window._rbNavOrigin = 'diary';
           snPage.style.display = 'block';
           _mvSetView('cal');
-          window.rbSetCrumb && window.rbSetCrumb([
-            { label: 'Lookbook', action: function() { window.__snOpen && window.__snOpen(); } },
-            { label: 'Diary' },
-          ]);
+          window.rbSetCrumb && window.rbSetCrumb([{ label: 'Diary' }]);
           window._rbNav && window._rbNav('/diary');
         };
         window.__rbCalOpen = window.__rbDiaryOpen; // legacy alias

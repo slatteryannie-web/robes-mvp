@@ -235,10 +235,14 @@ const browser = await chromium.launch(
   check('tab · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
 
   const s = await page.evaluate(() => {
-    const seg = Array.from(document.querySelectorAll('#sn-viewseg button')).map((b) => ({ v: b.dataset.mv, t: b.textContent, on: b.classList.contains('on') }));
+    const seg = !!document.getElementById('sn-viewseg');
+    const tabs = Array.from(document.querySelectorAll('#rb-topnav .rb-tn-link')).map((b) => b.textContent);
+    const dock = Array.from(document.querySelectorAll('#rb-dock .rb-dock-tab')).map((b) => b.id.replace('rb-dock-', ''));
     const vis = (id) => { const el = document.getElementById(id); return !!el && el.offsetParent !== null; };
     return {
-      seg,
+      seg, tabs, dock,
+      tnLookbookOn: document.getElementById('rb-tn-lookbook')?.classList.contains('active'),
+      tnDiaryOn: document.getElementById('rb-tn-diary')?.classList.contains('active'),
       shelves: !!document.getElementById('sn-tabs'),
       wsub: Array.from(document.querySelectorAll('#rb-wsub button')).map((b) => b.dataset.view),
       eyebrow: document.getElementById('sn-eyebrow')?.textContent,
@@ -259,8 +263,10 @@ const browser = await chromium.launch(
       path: location.pathname,
     };
   });
-  check('shelf · the Lookbook is Looks | Diary, opening on Looks',
-    s.seg.map((t) => t.t).join(',') === 'Looks,Diary' && s.seg[0].on === true && s.seg[1].on === false,
+  check('shelf · the Diary is a nav tab (Lookbook · Diary · Wardrobe · Inspiration), no in-page segment; the Lookbook opens lit',
+    s.seg === false && s.tabs.join(',') === 'Lookbook,Diary,Wardrobe,Inspiration'
+      && s.dock.join(',') === 'home,lookbook,diary,wardrobe,inspiration'
+      && s.tnLookbookOn === true && s.tnDiaryOn === false,
     JSON.stringify(s.seg));
   check('shelf · the type shelves are retired (one looks view)', s.shelves === false);
   check('shelf · the wardrobe holds pieces and wishlist only (Looks moved out)',
@@ -481,13 +487,13 @@ const browser = await chromium.launch(
   check('detail · no sub-sub-nav back line', d.back === false);
   check('detail · grid yields to the detail', d.gridHidden === true);
   const tabBack = await page.evaluate(() => {
-    document.querySelector('#sn-viewseg [data-mv="grid"]').click();
+    document.getElementById('rb-tn-lookbook').click();
     return {
       gridShown: document.getElementById('rb-lk-grid')?.style.display !== 'none',
       tiles: document.querySelectorAll('#rb-lk-grid .rb-lk-tile').length,
     };
   });
-  check('detail · tapping Looks in the segment lands the landing grid',
+  check('detail · tapping the Lookbook tab lands the landing grid',
     tabBack.gridShown && tabBack.tiles === 2, JSON.stringify(tabBack));
   await page.evaluate(() => window.__lkOpen('lk-1'));
   await page.waitForTimeout(200);
@@ -1803,7 +1809,6 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     allHeadHidden: document.getElementById('rb-lk-allhead')?.style.display === 'none',
     sort: !!document.querySelector('.rb-lk-sort'),
     seg: !!document.getElementById('sn-viewseg'),
-    diaryInert: document.querySelector('#sn-viewseg button[data-mv="cal"]')?.classList.contains('inert'),
   }));
   check('empty · ONE DOOR — the empty Lookbook IS the composer, no ways-to-fill shelf',
     cold.composer === true && cold.title === 'Name your first look'
@@ -1811,17 +1816,26 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   check('empty · nothing competes with it — no travel strip, All-looks header, sort or refine',
     cold.barHidden && cold.holHidden && cold.allHeadHidden && cold.sort === false,
     JSON.stringify([cold.barHidden, cold.holHidden, cold.allHeadHidden, cold.sort]));
-  // The Diary is visible but inert at zero — tapping it leaves her on Looks
-  const diary = await page.evaluate(() => {
-    document.querySelector('#sn-viewseg button[data-mv="cal"]').click();
+  // The Diary is its own tab (2026-09-08) — it opens even at zero looks,
+  // and the Lookbook tab brings her back to the composer untouched.
+  const diary = await page.evaluate(async () => {
+    document.getElementById('rb-tn-diary').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const calOn = document.getElementById('sn-page')?.classList.contains('rb-cal-on');
+    const eyebrow = document.getElementById('sn-eyebrow')?.textContent;
+    const diaryLit = document.getElementById('rb-tn-diary')?.classList.contains('active');
+    document.getElementById('rb-tn-lookbook').click();
+    await new Promise((r) => setTimeout(r, 450));
     return {
-      calOn: document.getElementById('sn-page')?.classList.contains('rb-cal-on'),
+      calOn, eyebrow, diaryLit,
+      calOff: !document.getElementById('sn-page')?.classList.contains('rb-cal-on'),
+      eyebrowBack: document.getElementById('sn-eyebrow')?.textContent,
       stillComposer: !!document.querySelector('.rb-lk-composer > .rb-lk-con'),
     };
   });
-  check('empty · the Diary is visible but inert; tapping it returns to Looks',
-    cold.seg === true && cold.diaryInert === true
-      && diary.calOn === false && diary.stillComposer === true, JSON.stringify([cold.diaryInert, diary]));
+  check('empty · no in-page segment; the Diary tab opens the Diary at zero looks and the Lookbook tab returns to the composer',
+    cold.seg === false && diary.calOn === true && diary.eyebrow === 'Diary' && diary.diaryLit === true
+      && diary.calOff === true && diary.eyebrowBack === 'Lookbook' && diary.stillComposer === true, JSON.stringify(diary));
   // A key piece alone does NOT fill the Lookbook — it lives on Inspiration
   // (IA refinement 2026-08-10). The one door holds.
   await page.evaluate(() => {
@@ -2272,20 +2286,23 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     calShown: document.getElementById('sn-cal')?.style.display === 'block',
     calClass: document.getElementById('sn-page').classList.contains('rb-cal-on'),
     path: location.pathname,
-    segDiaryOn: document.querySelector('#sn-viewseg [data-mv="cal"]')?.classList.contains('on'),
+    tnDiaryOn: document.getElementById('rb-tn-diary')?.classList.contains('active'),
+    dockDiaryOn: document.getElementById('rb-dock-diary')?.classList.contains('active'),
     tnLookbook: document.getElementById('rb-tn-lookbook')?.classList.contains('active'),
     tnCalGone: !document.getElementById('rb-tn-calendar'),
     tnInsp: !!document.getElementById('rb-tn-inspiration'),
     dockInsp: !!document.getElementById('rb-dock-inspiration'),
+    eyebrow: document.getElementById('sn-eyebrow')?.textContent,
     wrapHidden: (() => { const el = document.getElementById('rb-lk-wrap'); return !el || el.offsetParent === null; })(),
     monthTitle: document.querySelector('.rb-mv-title')?.textContent || '',
   }));
-  check('IA · the Diary opens inside the Lookbook at /diary',
-    cal.calShown && cal.calClass && cal.path === '/diary' && /\d{4}/.test(cal.monthTitle) && cal.segDiaryOn === true,
+  check('IA · the Diary opens at /diary under its own eyebrow',
+    cal.calShown && cal.calClass && cal.path === '/diary' && /\d{4}/.test(cal.monthTitle) && cal.eyebrow === 'Diary',
     JSON.stringify(cal));
-  check('IA · no Calendar tab — the Lookbook stays lit; Inspiration holds the third slot',
-    cal.tnLookbook === true && cal.tnCalGone === true && cal.tnInsp === true && cal.dockInsp === true,
-    JSON.stringify([cal.tnLookbook, cal.tnCalGone, cal.tnInsp, cal.dockInsp]));
+  check('IA · the Diary tab lights (desktop + dock), the Lookbook does not; no legacy Calendar tab; Inspiration stands',
+    cal.tnDiaryOn === true && cal.dockDiaryOn === true && cal.tnLookbook === false && cal.tnCalGone === true
+      && cal.tnInsp === true && cal.dockInsp === true,
+    JSON.stringify([cal.tnDiaryOn, cal.dockDiaryOn, cal.tnLookbook, cal.tnCalGone, cal.tnInsp, cal.dockInsp]));
   check('IA · the looks view yields under the Diary', cal.wrapHidden === true);
 
   // An empty future day offers "wear a look" — picking one pins it there.
