@@ -6515,6 +6515,7 @@
       // count) under the day's verbs — Wore it, Adjust this day, Restyle.
       // Nothing here edits: Adjust this day opens the console, where every
       // change is local to the day (rules 05/06) exactly as before.
+      var _dlLookPhotoPending = false;
       function _dlSavedViewHtml(l, o) {
         // The look page's own dress — a diary day can open on a dashboard
         // where the Lookbook never painted, so the sheet is injected here.
@@ -6526,27 +6527,77 @@
         const props = Array.isArray(l.proposals) ? l.proposals : [];
         const dPhoto = props.length ? null : _pdHttp(l.photo_url);
         const dView = _dlLookView || (dPhoto ? 'photo' : 'model');
+        // The SAME photograph door and You / Model switch the look page
+        // carries (Annie, 2026-09-08): the camera on the image adds, or
+        // replaces on the You view; the diary button stays off — this IS
+        // the day. The tags row edits the LOOK, never the day.
+        const acts = _lkImgActsHtml({
+          diary: false,
+          camera: props.length ? null : (dPhoto ? (dView === 'photo' ? 'replace' : null) : 'add'),
+          fn: '__dlLookPhotoAdd',
+        });
         const viewRow = dPhoto
           ? '<div class="rb-lk-viewrow"><div class="rb-lkm-seg" role="group" aria-label="Look view">' +
               '<button type="button"' + (dView === 'photo' ? ' class="on"' : '') + ' onclick="window.__dlLookView(\'photo\')">You</button>' +
               '<button type="button"' + (dView === 'photo' ? '' : ' class="on"') + ' onclick="window.__dlLookView(\'model\')">Model</button></div>' +
-              '<span class="note">Kept as the record of this look</span></div>'
+              '<span class="note">' + (_dlLookPhotoPending ? 'Uploading…' : 'Kept as the record of this look') + '</span></div>'
+          : '';
+        const dPro = _lkModelPro();
+        const photoNote = (!props.length && !dPhoto && ids.length)
+          ? '<div class="rb-lk-photonote">' + (_dlLookPhotoPending ? 'Uploading…' : 'Wore this look? Add your photograph and it is kept alongside ' + dPro.her + '.') + '</div>'
           : '';
         const lookHtml = _lkLookPanelHtml(l, {
-          items, ids, props, dirty: 0, dPhoto, dView, acts: '',
-          tail: (o.tagsHtml || '') + viewRow,
+          items, ids, props, dirty: 0, dPhoto, dView, acts,
+          tail: _rbTagsRowHtml(_lkTagsOf(l), '__dlLookTagsEdit') + viewRow,
           occHtml: o.occHtml || '',
           actionHtml: o.actionHtml || '',
-        });
+        }) + photoNote;
         const rackItems = items.map(it => Object.assign({}, it, {
           count: { cur: 0, len: 1 },
           thirdHtml: it.owned ? '<span class="rbc-wears">' + _lkN(it.wearCount || 0, 'wear') + '</span>' : '',
         }));
-        const rackHtml = '<div class="rbc-rackhead"><div style="min-width:0"><span class="ey">' + (o.rackLabel || 'The rack') + '</span></div>' +
-          '<div class="rbc-hbtns">' + (o.headButtonsHtml || '') + '</div></div>' +
+        // The rack head in the look page's register: the count, the wear
+        // verb, and ONE edit door ("Edit this day" ↔ "Edit & resave").
+        const rackHtml = '<div class="rb-lk-sec rb-lk-rackhead"><span>The rack · ' + _lkN(ids.length, 'piece') + '</span><span style="flex:1"></span>' +
+          (o.headButtonsHtml || '') + '</div>' +
           '<div class="rbc-rack">' + _rbRackRolesHtml(rackItems, { onPiece: '__dlLookPieceOpen' }, []) + '</div>';
         return { lookHtml, rackHtml };
       }
+      // The day's saved view edits the LOOK's tags — one look, one tag set,
+      // wherever it is read (the look page, a day, a trip).
+      window.__dlLookTagsEdit = function() {
+        const d = window.__lastDlData;
+        const l = d && d.look_id ? _lkFind(d.look_id) : null;
+        if (!l) return;
+        const seed = (Array.isArray(l.tags) && l.tags.length) ? l.tags : _rbInheritLookTags(_lkPieceIds(l));
+        window.__rbTagSheet(seed, '__dlLookTagsApply', l.name);
+      };
+      window.__dlLookTagsApply = function(t) {
+        const d = window.__lastDlData;
+        const l = d && d.look_id ? _lkFind(d.look_id) : null;
+        if (!l) return;
+        _lkTagsApplyTo(l, t, 'day');
+        // The day's own blob mirrors the look's tags so the rail and the
+        // saved row read the same words.
+        try { d.look_tags = _rbTagsBlob(_rbTagsParse(t)); } catch (_) {}
+        _dlRerender();
+      };
+      // Her photograph of the look, added from the day — kept on the LOOK
+      // (looks.photo_url), so the look page shows it too.
+      window.__dlLookPhotoAdd = function() {
+        const d = window.__lastDlData;
+        const l = d && d.look_id ? _lkFind(d.look_id) : null;
+        if (!l) return;
+        _lkPhotoPick(function() {
+          _dlLookPhotoPending = true;
+          _dlRerender();
+        }, function(url) {
+          _dlLookPhotoPending = false;
+          if (url) { _lkPatch(l.id, { photo_url: url }); _dlLookView = 'photo'; _rbTrack('look_photo_added', { surface: 'day' }); }
+          else _waShowToast('That photo would not upload — try again shortly');
+          _dlRerender();
+        });
+      };
       window.__dlLookPieceOpen = function(idx) {
         const d = window.__lastDlData;
         const l = d && d.look_id && typeof _lkFind === 'function' ? _lkFind(d.look_id) : null;
@@ -9081,10 +9132,11 @@
         });
         return priced ? '€' + Math.max(1, Math.round(sum / n)) : null;
       }
+      // Months by table (newer ICU prints "Sept." from {month:'short'}).
       function _lkFmt(iso) {
         if (!iso) return '—';
         const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
-        return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        return isNaN(d) ? '—' : d.getDate() + ' ' + _rbMon3(String(iso).slice(0, 10));
       }
       // The long form a day answers to — "Sunday 16 Aug", not "16 Aug". Used
       // wherever a look points AT a day (the pin line), so the sentence
@@ -9092,7 +9144,7 @@
       function _lkFmtLong(iso) {
         if (!iso) return '—';
         const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
-        return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+        return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { weekday: 'long' }) + ' ' + d.getDate() + ' ' + _rbMon3(String(iso).slice(0, 10));
       }
       // "Tue 8 Sep" — the register the wardrobe piece's wear rows print in
       // (Robes_Look_IA, 2026-09-08: the look's wear record reads the way a
@@ -9100,7 +9152,7 @@
       function _lkFmtDay(iso) {
         if (!iso) return '—';
         const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
-        return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
+        return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + d.getDate() + ' ' + _rbMon3(String(iso).slice(0, 10));
       }
       const _LK_TIMES = ['not yet', 'once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times', 'ten times', 'eleven times', 'twelve times'];
       function _lkTimes(n) { return _LK_TIMES[n] || (n + ' times'); }
@@ -9716,6 +9768,10 @@ button.rb-lk-live{cursor:pointer}
 /* The pinned reminder strip (C1) — one quiet line pointing at the day. */
 .rb-lk-pinstrip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:18px;background:var(--secondary,#E3E1CC);border-radius:8px;padding:10px 16px;font-size:12px;color:#4F4B3C}
 .rb-lk-pinstrip button{background:none;border:none;padding:0 0 1px;font-family:inherit;font-size:12px;color:var(--ink);border-bottom:1px solid rgba(32,32,33,0.25);cursor:pointer;white-space:nowrap;flex:none}
+.rb-lk-pinstrip .acts{display:inline-flex;align-items:center;gap:14px;flex:none}
+.rb-lk-pinstrip button.x{border-bottom:none;font-size:17px;line-height:1;padding:0 2px;color:#4F4B3C;opacity:.7}
+.rb-lk-pinstrip button.x:hover{opacity:1}
+.rb-lk-pinstrip+.rb-lk-pinstrip{margin-top:8px}
 /* The edit strip — the day banner's register (D1): one quiet line naming
    the changes as unsaved, with the three ways out. */
 .rb-lk-editbar{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:14px;padding:14px 18px;background:#fff;border:0.5px solid var(--rule);border-radius:var(--rad-sm);font-size:12px;color:var(--ink-soft);line-height:1.6}
@@ -9784,9 +9840,16 @@ button.rb-lk-live{cursor:pointer}
    the look, the formula and the save all live inside a single card, with
    the name leading it from outside. No frame inside a frame — the Look
    panel drops its own border/background and merges into the card. */
-.rb-lk-composer{background:#fff;border:0.5px solid var(--rule-mid);border-radius:var(--rad-lg);padding:26px 26px 24px;box-shadow:0 1px 2px rgba(32,32,33,0.025)}
-.rb-lk-composer .rbc-panel{background:transparent;border:none;border-radius:0;padding:0}
-.rb-lk-composer .rbc-rghost{background:var(--cream-100)}
+.rb-lk-composer,.rb-lk-held{background:#fff;border:0.5px solid var(--rule-mid);border-radius:var(--rad-lg);padding:26px 26px 24px;box-shadow:0 1px 2px rgba(32,32,33,0.025)}
+.rb-lk-composer .rbc-panel,.rb-lk-held .rbc-panel{background:transparent;border:none;border-radius:0;padding:0}
+.rb-lk-composer .rbc-rghost,.rb-lk-held .rbc-rghost{background:var(--cream-100)}
+/* The saved look, reading or editing, is HELD the way the composer and
+   the day console are (Annie, 2026-09-08) — one card for the look and
+   its rack; a distinct class because the composer is queried by its own. */
+.rb-lk-held{margin-top:18px}
+.rb-lk-held .rb-lk-rackhead,.dlm-saved .rb-lk-rackhead{margin-top:0;min-height:30px}
+.rb-lk-held .rb-lk-worn{margin-top:26px;padding-top:20px;border-top:1px solid var(--rule)}
+.rb-lk-foot{border-top:none;padding-top:0;margin-top:18px}
 .rb-lk-newmast{max-width:560px}
 .rb-lk-saverow{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:0.5px solid var(--rule)}
 .rb-lk-save{margin:0;padding:15px 34px;border:none;border-radius:100px;background:var(--ink);color:#fff;font-family:inherit;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:opacity .15s}
@@ -9917,7 +9980,7 @@ button.rb-lk-live{cursor:pointer}
 }
 @media(max-width:767px){
 .rb-lk-stats{gap:20px}
-.rb-lk-composer{padding:18px 16px 20px;border-radius:var(--rad-card)}
+.rb-lk-composer,.rb-lk-held{padding:18px 16px 20px;border-radius:var(--rad-card)}
 .rb-lk-saverow{flex-direction:column;align-items:stretch;gap:15px;margin-top:20px}
 .rb-lk-save{width:100%;min-height:52px;order:-1}
 .rb-lk-savenote{text-align:center}
@@ -10683,7 +10746,7 @@ button.rb-lk-live{cursor:pointer}
         // The wear verbs left the header: the diary lives on the image and
         // the wear record after the rack.
         const back = _lkFrom || { label: 'Lookbook' };
-        let mastL = '<div class="rb-lk-eyebrow">' + (editing ? 'Lookbook / Editing' : (prov ? 'Saved look · Robes named it' : 'Saved look')) + '</div>';
+        let mastL = '<div class="rb-lk-eyebrow">' + (prov && !editing ? 'Saved look · Robes named it' : 'Saved look') + '</div>';
         if (_lkTitleEditing) {
           mastL += '<input id="rb-lk-title" class="rb-lk-title-in' + (prov ? ' prov' : '') + '" value="' + _waEsc(title) + '"' +
             ' oninput="window.__lkTitleInput(this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" onblur="window.__lkTitleCommit(this.value)">' +
@@ -10716,13 +10779,15 @@ button.rb-lk-live{cursor:pointer}
             '</div></div>';
         }
         if (!editing && pins.length) {
-          // A subtle reminder STRIP, not a panel (C1) — the one line on
-          // this page that points OUT of it; the day is where the date,
-          // the weather and the wear live.
-          h += '<div class="rb-lk-pinstrip"><span>Pinned for ' + pins.map(_lkFmtLong).join(' and ') + '.</span>' +
-            '<button type="button" onclick="window.__lkSeeDay(\'' + pins[0] + '\')">Open the day →</button></div>';
+          // A subtle reminder STRIP per pinned day, not a panel (C1) — the
+          // one line on this page that points OUT of it; the ✕ takes the
+          // pin back (Annie, 2026-09-08: the banner needs a way to cancel).
+          h += pins.map(d =>
+            '<div class="rb-lk-pinstrip"><span>Pinned for ' + _lkFmtLong(d) + '.</span><span class="acts">' +
+            '<button type="button" onclick="window.__lkSeeDay(\'' + d + '\')">Open the day →</button>' +
+            '<button type="button" class="x" title="Unpin" aria-label="Unpin this day" onclick="window.__lkUnpinDay(\'' + d + '\')">×</button>' +
+            '</span></div>').join('');
         }
-        if (_lkDone) h += '<div class="rb-lk-panel" style="border-color:var(--rule-mid);background:#fff"><div class="pl">' + _waEsc(_lkDone) + '</div></div>';
 
         // The Rack — the same rack rows every console uses. A saved build's
         // proposals hang as full rack cards (the shared _rbcRow). Only with
@@ -10747,7 +10812,7 @@ button.rb-lk-live{cursor:pointer}
           const line = dirty
             ? (dirty === 1 ? 'One change' : dirty + ' changes') + ' to this look.' + (n ? ' Its ' + _lkN(n, 'wear') + ' stay with it if you update.' : '')
             : 'No changes yet. Swap, add or take a piece out and this line tells you what happens to its wear.';
-          h += '<div class="rb-lk-composer rb-lk-editing"><div class="rb-lk-con"><div>' + lookPanel + '</div><div>' +
+          h += '<div class="rb-lk-held rb-lk-editing"><div class="rb-lk-con"><div>' + lookPanel + '</div><div>' +
             '<div class="rb-lk-sec rb-lk-rackhead"><span>The rack</span></div>' +
             '<div class="rbc-rack">' + _rbRackRolesHtml(items, rackCfg, propEmpties) + '</div>' +
             '<button class="rbc-addpiece" onclick="window.__lkDAddOpen()"><span style="font-size:16px;line-height:1;margin-top:-1px">+</span> Add a piece</button>' +
@@ -10770,7 +10835,9 @@ button.rb-lk-live{cursor:pointer}
         const photoNote = (!props.length && !dPhoto && !ownedNone)
           ? '<div class="rb-lk-photonote">' + (_lkDetailPhotoPending ? 'Uploading…' : 'Wore this look? Add your photograph and it is kept alongside ' + dPro.her + '.') + '</div>'
           : '';
-        h += '<div class="rb-lk-con"><div>' + lookPanel + photoNote + '</div><div>';
+        // The look and the rack in ONE held card — the composer's and the
+        // day's container (Annie, 2026-09-08: the loose columns read broken).
+        h += '<div class="rb-lk-held"><div class="rb-lk-con"><div>' + lookPanel + photoNote + '</div><div>';
         // The rack READS: each row carries the piece's own wear count where
         // the flick cluster and Swap sit once she asks to edit. The wear
         // count is INFORMATION, not an action — its own class.
@@ -10809,11 +10876,10 @@ button.rb-lk-live{cursor:pointer}
                     '<span class="pc">' + d.line + '</span>' + _LK_ARROW + '</button>';
                 }).join('') + '</div>'
               : '<div class="rb-lk-wornempty">Not worn yet. The counter started when you saved it.</div>') +
-            '<div class="rb-lk-wornrow">' +
-              (wornToday
-                ? '<span class="rb-lk-wornnow"><span class="rb-lk-worntoday done">Worn today ✓</span>' +
-                  '<button type="button" class="rb-lk-quiet" onclick="window.__lkUndoToday()">Not this, actually</button></span>'
-                : '<button type="button" class="rb-lk-worntoday" onclick="window.__lkWearToday()">Worn today</button>') +
+            // Today's wear is filed from the diary button on the image
+            // ("I wore this today"); down here only the retro door stands
+            // (Annie, 2026-09-08: "Worn today / Not this, actually" read unclear).
+            '<div class="rb-lk-wornrow"><span></span>' +
               '<button type="button" class="rb-lk-quiet" onclick="window.__lkRetro()">Add a date</button>' +
             '</div>' +
             (_lkRetro
@@ -10835,11 +10901,12 @@ button.rb-lk-live{cursor:pointer}
           .concat(kids.length ? ['Made from this look · ' + kids.map(k =>
             '<button type="button" class="rb-lk-lin" onclick="window.__lkOpen(\'' + k.id + '\')">' + _waEsc(k.name) + '</button>').join(', ')] : []);
 
+        h += '</div></div></div>';
         h += '<div class="rb-lk-foot">' +
           (lineage.length ? '<span style="font-size:12px;color:var(--ink-faint)">' + lineage.join(' · ') + '</span><span style="flex:1"></span>' : '') +
           '<button type="button" class="rb-lk-quiet rose" onclick="window.__lkDeleteAsk(\'' + l.id + '\')">Delete this look</button></div>';
 
-        return h + '</div></div></div>';
+        return h + '</div>';
       }
       // addFn (optional): the normal wardrobe add flow, offered alongside the
       // catalogued options — and AS the way forward when the category is
@@ -11667,7 +11734,7 @@ button.rb-lk-live{cursor:pointer}
         window.__lkDiaryClose();
         if (d < today) {
           const w = _lkAddWear(l, { date: d, source: 'retro' });
-          _lkDone = w ? 'Recorded — worn ' + _lkFmt(d) + '.' : 'Already recorded for ' + _lkFmt(d) + '.';
+          _waShowToast(w ? 'Recorded — worn ' + _lkFmt(d) : 'Already recorded for ' + _lkFmt(d));
         } else {
           if (_lkPins(l.id).indexOf(d) > -1) { window.__lkSeeDay(d); return; }
           _lkPin(l.id, d);
@@ -11785,6 +11852,12 @@ button.rb-lk-live{cursor:pointer}
           status: (l.wears || []).some(w => String(w.worn_on).slice(0, 10) === iso) ? 'worn' : 'planned',
         }]);
       };
+      // The ✕ on a pinned reminder strip — the pin comes off that day and
+      // the strip goes with it (_lkUnpin repaints the page).
+      window.__lkUnpinDay = function(iso) {
+        if (!iso || !_lkActive) return;
+        _lkUnpin(_lkActive, iso);
+      };
       window.__lkPinTo = function(iso) {
         if (!iso) return;
         _lkPin(_lkActive, iso);
@@ -11827,7 +11900,7 @@ button.rb-lk-live{cursor:pointer}
         if (!l || !iso) return;
         const w = _lkAddWear(l, { date: iso, source: 'retro' });
         _lkRetro = false;
-        _lkDone = w ? 'Recorded — worn ' + _lkFmt(iso) + '.' : 'Already recorded for ' + _lkFmt(iso) + '.';
+        _waShowToast(w ? 'Recorded — worn ' + _lkFmt(iso) : 'Already recorded for ' + _lkFmt(iso));
         _lkPaint();
       };
       // Look tags on a saved Look (spec F2) — stored in the looks table's
@@ -11843,6 +11916,13 @@ button.rb-lk-live{cursor:pointer}
       window.__lkTagsApply = function(t) {
         const l = _lkFind(_lkActive);
         if (!l) return;
+        _lkTagsApplyTo(l, t, 'look');
+        _lkPaint();
+      };
+      // The ONE write path for a saved look's tags — the look page and the
+      // day's saved view (which shows the LOOK, so its tags are the look's)
+      // both land here. The caller repaints its own surface.
+      function _lkTagsApplyTo(l, t, surface) {
         t = _rbTagsParse(t);
         // Editing climate in the Tags sheet is HER judgement, and it is
         // permanent: climate_source flips to 'user' and the look is never
@@ -11856,9 +11936,8 @@ button.rb-lk-live{cursor:pointer}
         _lkCacheWrite();
         _tgSetLinks('look', l.id, 'wear_for', t.wear, 'user');
         _tgSetLinks('look', l.id, 'vibe', t.vibe, 'user');
-        _lkPaint();
-        _rbTrack('look_tags_edited', { surface: 'look' });
-      };
+        _rbTrack('look_tags_edited', { surface: surface || 'look' });
+      }
       // Titles are offered, not applied (A6): the suggestion IS the name
       // until she types over it, and typing makes it hers.
       window.__lkTitleInput = function(v) {
@@ -12007,7 +12086,8 @@ button.rb-lk-live{cursor:pointer}
         _lkCacheWrite();
         _lkPatchCloud(l, { note: l.note });
         _lkPiecesCloud(l);
-        _lkDone = wearN ? 'Updated. Its ' + _lkN(wearN, 'wear') + ' stay as they were.' : 'Updated.';
+        // A toast, never a standing banner (Annie, 2026-09-08).
+        _waShowToast('Updated');
         _rbTrack('look_updated', { wears: wearN });
         _lkPaint();
       };
@@ -12069,7 +12149,7 @@ button.rb-lk-live{cursor:pointer}
           _lkDraft = null;
           _lkEditMode = false;
           _lkActive = nl.id;
-          _lkDone = 'Saved as its own look. ' + l.name + ' is untouched.';
+          _waShowToast('Saved as its own look');
           _rbTrack('look_promoted', {});
           _lkPaint();
         };
@@ -14511,11 +14591,12 @@ button.rb-lk-live{cursor:pointer}
           // masthead offer. A LOOSE look exists nowhere until she saves it
           // (1a) — Save is the one real commitment on that screen, and
           // sharing waits for a look that exists.
+          // Share is off the day for now (Annie, 2026-09-08).
           lookActionHtml: dlLooseUnkept
             ? `<button onclick="window.__dlSaveAsk&&window.__dlSaveAsk()">Save this look</button>`
-            : `<button onclick="window.__rbShare&&window.__rbShare()">Share this look</button>`,
+            : '',
           actionKeep: dlLooseUnkept,
-          shareBadge: !dlLooseUnkept,
+          shareBadge: false,
         }, conItems);
         // THE SAVED VIEW — a day wearing its saved look, untouched, holds
         // the look as it reads on its own page; the header above stays the
@@ -14524,16 +14605,17 @@ button.rb-lk-live{cursor:pointer}
         // rules 05/06) is one tap away behind Adjust this day, and returns
         // by itself the moment a change stands.
         const dlSaved = !!dayLook && !dlLoose && !dayChg.n && !_dlDayEdit;
+        // Share is off every look surface for now (Annie, 2026-09-08); the
+        // head carries the wear verb and ONE edit door, in the look page's
+        // register — Restyle lives inside the edit console with the rest
+        // of the change machinery.
         const view = dlSaved ? _dlSavedViewHtml(dayLook, {
           occHtml: dlOccHtml,
-          tagsHtml: _rbTagsRowHtml(data.look_tags, '__dlTagsEdit'),
-          actionHtml: `<button onclick="window.__rbShare&&window.__rbShare()">Share this look</button>`,
-          rackLabel: `The rack · ${_waEsc(dlMomentLabel)}`,
+          actionHtml: '',
           headButtonsHtml: ((data && data.worn)
-            ? `<span class="rbc-hbtn" style="opacity:.55;pointer-events:none">Worn ✓</span>`
-            : (owned > 0 ? `<button class="rbc-hbtn" id="dl-wear-btn" onclick="window.__dlWear()" title="Log these pieces as worn — wear counts feed cost-per-wear">✓ Wore it</button>` : ''))
-            + `<button class="rbc-hbtn" onclick="window.__dlDayEdit()" title="Swap, add or take out a piece — for this day only">✎ Adjust this day</button>`
-            + `<button class="rbc-hbtn" onclick="window.__dlRestyle()" title="A fresh look — anchored pieces stay">↻ Restyle this day</button>`,
+            ? `<span class="rb-lk-editbtn" style="opacity:.6">Worn ✓</span>`
+            : (owned > 0 ? `<button type="button" class="rb-lk-sort rb-lk-editbtn" id="dl-wear-btn" onclick="window.__dlWear()" title="Log these pieces as worn — wear counts feed cost-per-wear">✓ Wore it</button>` : ''))
+            + `<button type="button" class="rb-lk-sort rb-lk-editbtn" onclick="window.__dlDayEdit()" title="Swap, add or take out a piece — for this day only">Edit this day</button>`,
         }) : con;
 
         // Header mirrors the live Moodboard: eyebrow → short serif title →
@@ -16350,7 +16432,8 @@ body>*:not(#tv-result-page){display:none !important}
           onPiece: '__tvPieceOpen', pieceCtx: li + ':' + (di == null ? '' : di),
           onRoleDrop: '__tvRoleDrop', roleCtx: li + ':' + (di == null ? '' : di),
           addPieceFn: opts.addPieceFn,
-          lookActionHtml: `<button onclick="window.__rbShare&&window.__rbShare()">Share this look</button>`,
+          // Share is off every look surface for now (Annie, 2026-09-08).
+          lookActionHtml: '',
           // An imported look names its saved look — the door to its page
           // (Robes_Look_IA: back reads "Travel edit" from there).
           panelExtraHtml: (l.imported && l.lookId && typeof _lkFind === 'function' && _lkFind(l.lookId))

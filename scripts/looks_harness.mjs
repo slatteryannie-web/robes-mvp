@@ -469,7 +469,10 @@ const browser = await chromium.launch(
     provisional: document.getElementById('rb-lk-title')?.classList.contains('prov'),
     wornVal: document.querySelector('.rb-lk-worn .rb-lk-rule .val')?.textContent,
     diary: !!document.querySelector('.rb-lk-con .rb-lk-diarybtn'),
-    worntoday: document.querySelector('.rb-lk-worntoday')?.textContent,
+    worntoday: !!document.querySelector('.rb-lk-worntoday'),
+    retro: Array.from(document.querySelectorAll('.rb-lk-worn .rb-lk-quiet')).map((b) => b.textContent),
+    held: !!document.querySelector('.rb-lk-held > .rb-lk-con') && !document.querySelector('.rb-lk-composer'),
+    panelBorder: getComputedStyle(document.querySelector('.rb-lk-held .rbc-panel')).borderStyle,
     pieceRows: document.querySelectorAll('.rb-lk-con .rbc-rack .rbc-row').length,
     wearRows: document.querySelectorAll('.rb-lk-wear').length,
     wearLines: Array.from(document.querySelectorAll('.rb-lk-wear .pc')).map((t) => t.textContent.replace(/\s+/g, ' ')),
@@ -569,7 +572,15 @@ const browser = await chromium.launch(
   // cost per wear beside it when priced pieces exist (700/2).
   check('detail · the wear record reads Worn · twice, with the cost per wear',
     d.wornVal === 'twice · €350 a wear', String(d.wornVal));
-  check('detail · Worn today is a quiet link under the record', d.worntoday === 'Worn today', String(d.worntoday));
+  // The "Worn today / Not this, actually" row is gone (Annie, 2026-09-08 —
+  // it read unclear): today's wear files from the diary on the image, and
+  // Add a date is the one retro door under the record.
+  check('detail · no Worn today row — Add a date is the one retro door under the record',
+    d.worntoday === false && d.retro.join(' | ') === 'Add a date', JSON.stringify([d.worntoday, d.retro]));
+  // The look and its rack are HELD in one card, the composer's and the
+  // day's dress — no frame inside the frame.
+  check('detail · the look and the rack are held in one card, no frame in a frame',
+    d.held === true && d.panelBorder === 'none', JSON.stringify([d.held, d.panelBorder]));
   check('detail · every piece is a shared rack row', d.pieceRows === 4, String(d.pieceRows));
   // The saved rack READS by default (1c) — the piece's own wear count where
   // the flick cluster and Swap sit once she asks to edit.
@@ -586,7 +597,7 @@ const browser = await chromium.launch(
       // Editing is the composer's frame (Robes_Create_Edit_Look_IA):
       // eyebrow, the held card, where it lives, the change bar.
       eyebrow: document.querySelector('.rb-lk-eyebrow')?.textContent,
-      frame: !!document.querySelector('.rb-lk-composer.rb-lk-editing > .rb-lk-con'),
+      frame: !!document.querySelector('.rb-lk-held.rb-lk-editing > .rb-lk-con'),
       bar: (document.querySelector('.rb-lk-editbar')?.textContent || '').replace(/\s+/g, ' '),
       acts: Array.from(document.querySelectorAll('.rb-lk-editbar button')).map((x) => x.textContent),
       lives: Array.from(document.querySelectorAll('.rb-lk-lives .rb-lk-live b')).map((x) => x.textContent),
@@ -602,8 +613,10 @@ const browser = await chromium.launch(
     editMode.wearsBefore.length === 4 && /wear/.test(editMode.wearsBefore[0] || ''), JSON.stringify(editMode.wearsBefore));
   check('detail · Edit & resave brings the flick cluster and Swap back',
     editMode.flicks === 8 && editMode.swaps === 4, JSON.stringify([editMode.flicks, editMode.swaps]));
-  check('editing · opens in the composer\'s frame under Lookbook / Editing',
-    editMode.eyebrow === 'Lookbook / Editing' && editMode.frame === true, JSON.stringify([editMode.eyebrow, editMode.frame]));
+  // No "Lookbook / Editing" crumb (Annie, 2026-09-08: it read as a bug) —
+  // the eyebrow stays Saved look; the held card and the change bar say edit.
+  check('editing · opens in the held card, the eyebrow still Saved look',
+    editMode.eyebrow === 'Saved look' && editMode.frame === true, JSON.stringify([editMode.eyebrow, editMode.frame]));
   check('editing · the change bar stands from the first second and says nothing has changed yet',
     /^No changes yet/.test(editMode.bar) && editMode.acts.join(' | ') === 'Discard | Update this look', JSON.stringify([editMode.bar.slice(0, 60), editMode.acts]));
   check('editing · where it lives leads with the lookbook and offers the diary',
@@ -730,20 +743,22 @@ const browser = await chromium.launch(
     !!roleRows && roleRows.some((r) => r.role === 'The Exclamation Point'), JSON.stringify(roleRows));
 
 
-  // The tap IS the wear, with a quiet undo on the card (A4/C1)
+  // The tap IS the wear (A4/C1) — today's wear files from the diary
+  // sheet's "I wore this today"; the page carries no Worn today row.
   const worn = await page.evaluate(() => {
-    document.querySelector('.rb-lk-worntoday').click();
+    window.__lkDiaryOpen();
+    document.querySelector('#rb-lkdy .wore').click();
     return {
       wears: document.querySelector('.rb-lk-worn .rb-lk-rule .val')?.textContent,
-      undo: !!Array.from(document.querySelectorAll('.rb-lk-quiet')).find((b) => b.textContent === 'Not this, actually'),
+      sheetGone: !document.getElementById('rb-lkdy'),
       dialog: !!document.querySelector('.sheet-overlay.open'),
       wearRows: document.querySelectorAll('.rb-lk-wear').length,
-      settled: document.querySelector('.rb-lk-worntoday.done')?.textContent,
+      banner: !!document.querySelector('#rb-lk-body .rb-lk-panel'),
     };
   });
-  check('wear · a tap creates the wear with no confirm dialog', /^three times/.test(worn.wears || '') && !worn.dialog, JSON.stringify(worn));
-  check('wear · undo is a quiet affordance on the card, not a toast', worn.undo === true);
-  check('wear · the action settles to Worn today ✓', worn.settled === 'Worn today ✓', String(worn.settled));
+  check('wear · I wore this today creates the wear with no confirm dialog',
+    /^three times/.test(worn.wears || '') && !worn.dialog && worn.sheetGone === true, JSON.stringify(worn));
+  check('wear · no confirmation banner stands on the page', worn.banner === false);
   check('wear · history gains the row', worn.wearRows === 3, String(worn.wearRows));
 
   await page.waitForTimeout(500);
@@ -756,14 +771,14 @@ const browser = await chromium.launch(
     String(writes.filter((w) => w.method === 'PATCH' && /wardrobe_items/.test(w.url)).length));
 
   const undone = await page.evaluate(() => {
-    Array.from(document.querySelectorAll('.rb-lk-quiet')).find((b) => b.textContent === 'Not this, actually').click();
+    window.__lkUndoToday();
     return {
       wears: document.querySelector('.rb-lk-worn .rb-lk-rule .val')?.textContent,
-      backToPrimary: document.querySelector('.rb-lk-worntoday')?.textContent,
+      wearRows: document.querySelectorAll('.rb-lk-wear').length,
     };
   });
   check('undo · the count returns', /^twice/.test(undone.wears || ''), String(undone.wears));
-  check('undo · Worn today comes back', undone.backToPrimary === 'Worn today', String(undone.backToPrimary));
+  check('undo · history drops the row', undone.wearRows === 2, String(undone.wearRows));
   await page.waitForTimeout(500);
   check('undo · corrects by DELETE, never an update to a wear',
     writes.some((w) => w.method === 'DELETE' && /^wears/.test(w.url)) &&
@@ -840,7 +855,8 @@ const browser = await chromium.launch(
       text: text.slice(0, 140), suggested, quiet,
       title: ((e) => e ? (e.tagName === 'INPUT' ? e.value : e.textContent) : null)(document.getElementById('rb-lk-title')),
       wears: document.querySelector('.rb-lk-worn .rb-lk-rule .val')?.textContent,
-      note: document.querySelector('.rb-lk-panel .pl')?.textContent,
+      note: document.getElementById('toast-msg')?.textContent,
+      banner: !!document.querySelector('#rb-lk-body .rb-lk-panel'),
     };
   });
   check('promotion · the D2 modal asks with a name ready, and the quiet way is update',
@@ -850,7 +866,9 @@ const browser = await chromium.launch(
   check('promotion · Save as a new look opens the NEW look under her name',
     promoted.title === 'The Thursday one, in the basket', promoted.title);
   check('promotion · the new look starts with no wears', promoted.wears === 'not yet', String(promoted.wears));
-  check('promotion · says the original is untouched', /untouched/.test(promoted.note || ''), promoted.note);
+  // Confirmations are toasts, never standing banners (Annie, 2026-09-08).
+  check('promotion · a toast, not a banner', /Saved as its own look/.test(promoted.note || '') && promoted.banner === false,
+    JSON.stringify([promoted.note, promoted.banner]));
   await page.waitForTimeout(500);
   const newLook = writes.find((w) => w.method === 'POST' && /^looks/.test(w.url));
   check('promotion · writes a new look row carrying its origin',
@@ -868,15 +886,16 @@ const browser = await chromium.launch(
     window.__lkDSwapApply(2, 'w-sho2');
     window.__lkResave();
     return {
-      note: document.querySelector('.rb-lk-panel .pl')?.textContent,
+      note: document.getElementById('toast-msg')?.textContent,
+      banner: !!document.querySelector('#rb-lk-body .rb-lk-panel'),
       wears: document.querySelector('.rb-lk-worn .rb-lk-rule .val')?.textContent,
       pieces: Array.from(document.querySelectorAll('.rb-lk-con .rbc-rack .rbc-name')).map((n) => n.textContent),
       firstWearSnapshot: document.querySelector('.rb-lk-wear .pc')?.textContent,
       barGone: !document.querySelector('.rb-lk-editbar'),
     };
   });
-  check('update · keeps the look and states history is intact',
-    /2 wears stay as they were/.test(upd.note || '') && upd.barGone === true, upd.note);
+  check('update · keeps the look — a toast says Updated, no banner stands',
+    upd.note === 'Updated' && upd.banner === false && upd.barGone === true, JSON.stringify([upd.note, upd.banner, upd.barGone]));
   check('update · wear count survives the edit', /^twice/.test(upd.wears || ''), String(upd.wears));
   check('update · composition changed', upd.pieces.includes('Tan leather slides'), JSON.stringify(upd.pieces));
   check('update · the wear keeps its own snapshot (history never rewritten)',
@@ -928,6 +947,7 @@ const browser = await chromium.launch(
     out.sheetGone = !document.getElementById('rb-lkdy');
     out.strip = (strip?.textContent || '').replace(/\s+/g, ' ');
     out.door = strip?.querySelector('button')?.textContent;
+    out.x = !!strip?.querySelector('button.x');
     // Reopened, the pinned day carries its dot and reads as already filed.
     window.__lkDiaryOpen();
     if (tomorrow.slice(0, 7) !== today.slice(0, 7)) window.__lkDiaryNav(1);
@@ -949,9 +969,9 @@ const browser = await chromium.launch(
     pinned.dots >= 1 && /Already in the diary/.test(pinned.ctaPinned || ''), JSON.stringify([pinned.dots, pinned.ctaPinned]));
   check('pin · the sheet closes on the pin', pinned.sheetGone === true);
   // The reminder STRIP appearing is the confirmation (C1) — no second panel.
-  check('pin · the reminder strip names the day and opens it',
-    /^Pinned for [A-Z][a-z]+day \d+ [A-Z]/.test(pinned.strip) && pinned.door === 'Open the day →',
-    JSON.stringify([pinned.strip, pinned.door]));
+  check('pin · the reminder strip names the day, opens it, and carries a ✕',
+    /^Pinned for [A-Z][a-z]+day \d+ [A-Z]/.test(pinned.strip) && pinned.door === 'Open the day →' && pinned.x === true,
+    JSON.stringify([pinned.strip, pinned.door, pinned.x]));
   await page.waitForTimeout(1200);   // the planned_days write is debounced
   const pinWrite = writes.find((w) => w.method === 'POST' && /^planned_days/.test(w.url));
   check('pin · writes a planned_days row of source_type look',
@@ -959,6 +979,17 @@ const browser = await chromium.launch(
     JSON.stringify(pinWrite?.body?.[0] || null));
   check('pin · the day carries the look\'s pieces', (pinWrite?.body?.[0]?.item_ids || []).length === 4,
     JSON.stringify(pinWrite?.body?.[0]?.item_ids || null));
+  // The ✕ takes the pin back (Annie, 2026-09-08: the banner needs a cancel).
+  const unpinned = await page.evaluate(async () => {
+    document.querySelector('.rb-lk-pinstrip button.x')?.click();
+    await new Promise((r) => setTimeout(r, 300));
+    return { strip: !!document.querySelector('.rb-lk-pinstrip') };
+  });
+  check('pin · the ✕ unpins the day and the strip goes with it', unpinned.strip === false, JSON.stringify(unpinned));
+  await page.waitForTimeout(1200);
+  check('pin · the unpin deletes the planned_days source',
+    writes.some((w) => w.method === 'DELETE' && /^planned_days/.test(w.url) && /lk-1/.test(w.url)),
+    JSON.stringify(writes.filter((w) => /planned_days/.test(w.url)).map((w) => w.method + ' ' + w.url).slice(-4)));
   await ctx.close();
 }
 
@@ -1728,7 +1759,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     await new Promise((r) => setTimeout(r, 700));
     const body = document.getElementById('rb-lk-body');
     return {
-      acts: document.querySelectorAll('.rb-lk-diarybtn, .rb-lk-worntoday').length,
+      acts: document.querySelectorAll('.rb-lk-diarybtn').length,
       wishDoor: /Open your wishlist/.test(body?.textContent || ''),
       stats: document.querySelectorAll('.rb-lk-worn').length,
       props: document.querySelectorAll('.rbc-rack .rb-lk-prop').length,
@@ -1784,13 +1815,13 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       picked: !!card,
       props: document.querySelectorAll('.rbc-rack .rb-lk-prop').length,
       ownedRows: document.querySelectorAll('.rbc-rack .rbc-row:not(.rb-lk-prop) .rbc-name').length,
-      acts: document.querySelectorAll('.rb-lk-diarybtn, .rb-lk-worntoday').length,
+      acts: document.querySelectorAll('.rb-lk-diarybtn').length,
       modalGone: !document.getElementById('rb-lkprop-swap'),
     };
   });
   check('nothing owned · picking an owned piece moves it ONTO the look — proposal off, wear verbs back',
     adopted.picked === true && adopted.props === 3 && adopted.ownedRows === 1
-      && adopted.acts === 2 && adopted.modalGone === true,
+      && adopted.acts === 1 && adopted.modalGone === true,
     JSON.stringify(adopted));
   check('nothing owned · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
   await ctx.close();
@@ -2018,7 +2049,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
 
   const md = await page.evaluate(() => {
     window.__lkOpen('lk-1');
-    const readActs = document.querySelectorAll('.rb-lk-diarybtn, .rb-lk-worntoday').length;
+    const readActs = document.querySelectorAll('.rb-lk-diarybtn').length;
     const readCon = document.querySelector('.rb-lk-con')?.getBoundingClientRect().right;
     window.__lkEditToggle();   // the touch targets live on the editable rack
     const det = document.querySelector('.rb-lk-con');
@@ -2046,7 +2077,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     };
   });
   check('390px · detail stacks', md.stacked === true);
-  check('390px · both wear doors survive — the diary on the image, Worn today under the record', md.actions === 2, String(md.actions));
+  check('390px · the wear door survives — the diary on the image', md.actions === 1, String(md.actions));
   check('390px · no horizontal overflow on the detail', md.overflow === true && md.conFits === true, JSON.stringify([md.overflow, md.conFits]));
   // Spec E · mobile parity
   check('390px E · one header — the rack\'s duplicate eyebrow folds away', md.rackEyHidden === true);
@@ -2554,8 +2585,9 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     rendered.vibe === 'Powerhouse' && /Robes read Powerhouse as the vibe/.test(rendered.vibeRead || '')
       && /Change the vibe/.test(rendered.vibeRead || ''),
     JSON.stringify([rendered.vibe, rendered.vibeRead]));
-  check('rule 04 · the Lookbook save is an OFFER, and Share stays the day\'s action',
-    rendered.offer === 'Save to your Lookbook' && rendered.cta === 'Share this look',
+  // Share is off every look surface for now (Annie, 2026-09-08).
+  check('rule 04 · the Lookbook save is an OFFER, and the day carries no Share',
+    rendered.offer === 'Save to your Lookbook' && rendered.cta == null,
     JSON.stringify([rendered.offer, rendered.cta]));
   check('daily zero-owned · Wore it waits for a piece she owns', rendered.wear === false, JSON.stringify(rendered.wear));
   check('daily zero-owned · the console is held in the composer’s card, no frame in a frame',
@@ -2670,8 +2702,8 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     keptWrites.some((x) => /POST looks/.test(x))
       && !keptWrites.some((x) => /POST (lookbook_items|planned_days)/.test(x)),
     JSON.stringify(keptWrites.slice(-6)));
-  check('loose · once kept it is a saved look — Share returns, the door points at it',
-    looseKept.cta === 'Share this look' && /Saved in your Lookbook/.test(looseKept.door),
+  check('loose · once kept it is a saved look — Save retires, the door points at it',
+    looseKept.cta == null && /Saved in your Lookbook/.test(looseKept.door),
     JSON.stringify(looseKept));
   // Guided landing (Annie's FTUE testing, 2026-08-19): the keep was the
   // console's one commitment — she is handed back to the dashboard.
@@ -2730,8 +2762,14 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       swaps: con ? Array.from(con.querySelectorAll('.rbc-act')).filter((b) => /Swap/.test(b.textContent)).length : -1,
       wears: con ? con.querySelectorAll('.rbc-wears').length : -1,
       head: con?.querySelector('.rbc-lhead .lab')?.textContent,
-      btns: Array.from(con?.querySelectorAll('.rbc-hbtn') || []).map((b) => b.textContent.trim()),
+      btns: Array.from(con?.querySelectorAll('.rb-lk-rackhead .rb-lk-editbtn') || []).map((b) => b.textContent.trim()),
+      hbtns: con ? con.querySelectorAll('.rbc-hbtn').length : -1,
       share: con?.querySelector('.rbc-action button')?.textContent,
+      badge: !!con?.querySelector('.rbc-share-m'),
+      camera: !!con?.querySelector('.rb-lk-photobtn'),
+      diary: !!con?.querySelector('.rb-lk-diarybtn'),
+      note: con?.querySelector('.rb-lk-photonote')?.textContent,
+      tagsDoor: !!con?.querySelector('[onclick*="__dlLookTagsEdit"]'),
       switcher: !!con?.querySelector('.rbc-occ, [onclick*="__dlSetSlot"]'),
       eyebrow: document.querySelector('#dl-result-page .dlm-eyebrow')?.textContent,
       title: document.querySelector('#dl-result-page .dlm-title')?.textContent,
@@ -2754,12 +2792,20 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   check('saved view · the header stays the day\'s — the date, its name, the door to the look',
     /^[A-Z][a-z]+day \d+ [A-Z]/.test(savedView.eyebrow || '') && savedView.title === 'Board day' && savedView.door === true,
     JSON.stringify([savedView.eyebrow, savedView.title, savedView.door]));
-  check('saved view · the day keeps its verbs — Wore it, Adjust this day, Restyle, Share, the Day/Evening switcher',
-    savedView.btns.some((b) => /Wore it/.test(b)) && savedView.btns.some((b) => /Adjust this day/.test(b))
-      && savedView.btns.some((b) => /Restyle this day/.test(b)) && savedView.share === 'Share this look'
-      && savedView.switcher === true,
-    JSON.stringify([savedView.btns, savedView.share, savedView.switcher]));
-  check('saved view · Adjust this day opens the console, The day, with the flick cluster',
+  // The head is the look page's register: the wear verb + ONE edit door
+  // (Edit this day ↔ Edit & resave); Restyle lives inside the edit console;
+  // no Share anywhere on the look for now (Annie, 2026-09-08).
+  check('saved view · the head carries Wore it + Edit this day, the Day/Evening switcher, and no Share',
+    savedView.btns.join(' | ') === '✓ Wore it | Edit this day' && savedView.hbtns === 0
+      && savedView.share == null && savedView.badge === false && savedView.switcher === true,
+    JSON.stringify([savedView.btns, savedView.hbtns, savedView.share, savedView.badge, savedView.switcher]));
+  // The same photograph door and note the look page carries, the diary
+  // button off (this IS the day), and the tags row editing the LOOK.
+  check('saved view · the camera and its note ride the image, the diary does not, the tags edit the look',
+    savedView.camera === true && savedView.diary === false && /Add your photograph/.test(savedView.note || '')
+      && savedView.tagsDoor === true,
+    JSON.stringify([savedView.camera, savedView.diary, savedView.note, savedView.tagsDoor]));
+  check('saved view · Edit this day opens the console, The day, with the flick cluster',
     savedView.editSaved === false && savedView.editArrows === 8 && /^The day · 4 pieces/.test(savedView.editHead || ''),
     JSON.stringify([savedView.editSaved, savedView.editArrows, savedView.editHead]));
 

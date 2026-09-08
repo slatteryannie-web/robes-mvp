@@ -243,9 +243,11 @@ const SHOT = process.env.SHOT_DIR || '';
   check('look · pager reads 1 of 4', /1 of 4/i.test(t2));
   check('look · card header carries category · worn', /Tops/i.test(t2) && /Worn eight times/i.test(t2) && await page.locator('.rb-pc-cardhead').count() === 1);
   check('look · no wear ledger on the preview', await page.locator('.rb-pc-rule').count() === 0 && await page.locator('.rb-pc-wear').count() === 0);
-  // The card wears the Look panel's dress — compared against the panel underneath
+  // The card wears the Look panel's dress — compared against the held card
+  // underneath (since 2026-09-08 the look page's panel merges into the
+  // held `.rb-lk-held` card, which carries the corners and the hairline).
   const dress = await page.evaluate(() => {
-    const c = getComputedStyle(document.querySelector('.rb-pc-card')), p = getComputedStyle(document.querySelector('#sn-page .rbc-panel'));
+    const c = getComputedStyle(document.querySelector('.rb-pc-card')), p = getComputedStyle(document.querySelector('#sn-page .rb-lk-held'));
     const n = getComputedStyle(document.querySelector('.rb-pc-note')), q = document.querySelector('#sn-page .rbc-quote') && getComputedStyle(document.querySelector('#sn-page .rbc-quote'));
     const t = getComputedStyle(document.querySelector('.rb-pc-tag')), lt = document.querySelector('#sn-page .rbc-tags .tg') && getComputedStyle(document.querySelector('#sn-page .rbc-tags .tg'));
     const tags = getComputedStyle(document.querySelector('.rb-pc-tags'));
