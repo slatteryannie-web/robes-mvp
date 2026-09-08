@@ -309,7 +309,7 @@ for (const n of [0, 1, 3, 5, 10, 15, 16]) {
     door: document.querySelector('.rb-lk-robesdoor')?.textContent || '',
     // nothing competes with it
     bar: document.getElementById('rb-lk-bar')?.style.display !== 'none',
-    hol: document.getElementById('rb-lk-hol')?.style.display !== 'none',
+    hol: !!document.getElementById('rb-lk-hol'),
     allHead: document.getElementById('rb-lk-allhead')?.style.display !== 'none',
     sort: !!document.querySelector('.rb-lk-sort'),
   }));

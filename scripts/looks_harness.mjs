@@ -1805,7 +1805,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     composer: !!document.querySelector('.rb-lk-composer > .rb-lk-con'),
     title: document.getElementById('rb-lk-newtitle')?.placeholder,
     barHidden: document.getElementById('rb-lk-bar')?.style.display === 'none',
-    holHidden: document.getElementById('rb-lk-hol')?.style.display === 'none',
+    holGone: !document.getElementById('rb-lk-hol'),
     allHeadHidden: document.getElementById('rb-lk-allhead')?.style.display === 'none',
     sort: !!document.querySelector('.rb-lk-sort'),
     seg: !!document.getElementById('sn-viewseg'),
@@ -1813,9 +1813,9 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   check('empty · ONE DOOR — the empty Lookbook IS the composer, no ways-to-fill shelf',
     cold.composer === true && cold.title === 'Name your first look'
       && cold.waysShown === false && cold.waysCards === 0, JSON.stringify(cold));
-  check('empty · nothing competes with it — no travel strip, All-looks header, sort or refine',
-    cold.barHidden && cold.holHidden && cold.allHeadHidden && cold.sort === false,
-    JSON.stringify([cold.barHidden, cold.holHidden, cold.allHeadHidden, cold.sort]));
+  check('empty · nothing competes with it — no travel strip (gone for good), All-looks header, sort or refine',
+    cold.barHidden && cold.holGone && cold.allHeadHidden && cold.sort === false,
+    JSON.stringify([cold.barHidden, cold.holGone, cold.allHeadHidden, cold.sort]));
   // The Diary is its own tab (2026-09-08) — it opens even at zero looks,
   // and the Lookbook tab brings her back to the composer untouched.
   const diary = await page.evaluate(async () => {
@@ -1882,17 +1882,9 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     moduleEmpty: !!document.querySelector('.rb-lk-empty'),
     sorts: Array.from(document.querySelectorAll('.rb-lk-sort')).map((b) => b.disabled),
     stat: document.querySelector('.rb-lk-statline')?.textContent,
-    // The travel strip arrives with the first look: invitation + ONE
-    // dimmed, labelled Robes example (2026-08-12)
-    holShown: document.getElementById('rb-lk-hol')?.style.display === 'block',
-    holSec: document.querySelector('#rb-lk-hol .rb-lk-sec')?.textContent,
-    invite: document.querySelector('#rb-lk-hol .rb-lk-holcard.invite')?.textContent,
-    example: document.querySelector('#rb-lk-hol .rb-lk-holcard.example')?.textContent,
-    exampleInert: (() => {
-      const el = document.querySelector('#rb-lk-hol .rb-lk-holcard.example');
-      return !!el && el.tagName !== 'BUTTON' && getComputedStyle(el).pointerEvents === 'none';
-    })(),
-    holNew: !!document.querySelector('#rb-lk-hol .rb-lk-holcard.new'),
+    // No travel strip on the Lookbook (Diary IA phase 2, 2026-09-08)
+    holGone: !document.getElementById('rb-lk-hol') && !document.querySelector('.rb-lk-holcard'),
+    newLook: Array.from(document.querySelectorAll('#rb-lk-bar button')).map((b) => b.textContent),
   }));
   check('empty · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
   check('empty · a legacy look item still fills the shelf',
@@ -1902,19 +1894,12 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   check('empty · no module empty state once anything exists', e.moduleEmpty === false);
   // Superseded 2026-08-12: sort and Refine RENDER at every count and sit
   // inert below four looks, rather than appearing from nowhere.
-  check('empty · sort and Refine render inert below four looks; the stat names the gap',
-    JSON.stringify(e.sorts) === JSON.stringify([true, true]) && e.stat === '1 look · no edits yet',
+  check('empty · sort and Refine render inert below four looks; the stat counts looks alone',
+    JSON.stringify(e.sorts) === JSON.stringify([true, true]) && e.stat === '1 look',
     JSON.stringify([e.sorts, e.stat]));
-  check('empty · the first look brings the travel strip: invitation + one dimmed Robes example',
-    e.holShown === true && e.holSec === 'Travel edit'
-      && /Plan a trip\./.test(e.invite || '') && /Start planning/.test(e.invite || '')
-      && /A chic Ibiza escape/.test(e.example || '') && /5 looks · 7–14 Aug/.test(e.example || '')
-      && e.exampleInert === true && e.holNew === false,
-    JSON.stringify([e.holShown, e.holSec, e.invite, e.example, e.exampleInert, e.holNew]));
-  // The meta line now reads like a real trip, so the example marker must
-  // survive somewhere on the card — dimming alone is not a label.
-  check('empty · the example is still unmistakably an example',
-    /Robes example/.test(e.example || ''), e.example);
+  check('empty · no travel strip on the Lookbook — trips live in the Diary; + New look is the one door',
+    e.holGone === true && JSON.stringify(e.newLook) === JSON.stringify(['+ New look']),
+    JSON.stringify([e.holGone, e.newLook]));
   // FTUE wording on the composer's one alternative door — she has no looks
   // yet, so Robes offers to build the FIRST one (2026-08-12).
   const ftue = await page.evaluate(() => {
@@ -2123,17 +2108,14 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       { id: 1754640000002, type: 'key-piece', title: 'Umbro shorts', subtitle: 'Worn three ways', img: null },
     ]));
     window.__lkGo();
-    const hol = document.getElementById('rb-lk-hol');
     return {
       cards: document.querySelectorAll('#rb-lk-grid .lt-card').length,
       eyebrows: Array.from(document.querySelectorAll('#rb-lk-grid .lt-ey')).map((e) => e.textContent).sort(),
       itemCard: Array.from(document.querySelectorAll('#rb-lk-grid .lt-card')).some((c) => /A Dublin day/.test(c.textContent)),
       kpInStream: /Umbro shorts/.test(document.getElementById('rb-lk-grid')?.textContent || ''),
-      holShown: !!hol && hol.style.display !== 'none',
-      holCards: document.querySelectorAll('#rb-lk-hol .rb-lk-holcard:not(.new)').length,
-      holMeta: document.querySelector('#rb-lk-hol .rb-lk-holcard .hm')?.textContent,
-      holNew: !!document.querySelector('#rb-lk-hol .rb-lk-holcard.new'),
-      newSplit: /\+ New ▾/.test(document.getElementById('rb-lk-bar')?.textContent || ''),
+      holGone: !document.getElementById('rb-lk-hol') && !document.querySelector('.rb-lk-holcard'),
+      tripInStream: /Ibiza holiday edit/.test(document.getElementById('rb-lk-grid')?.textContent || ''),
+      newLook: /\+ New look/.test(document.getElementById('rb-lk-bar')?.textContent || '') && !/▾/.test(document.getElementById('rb-lk-bar')?.textContent || ''),
       stat: document.querySelector('#rb-lk-bar .rb-lk-statline')?.textContent,
       allRow: (() => {
         const row = document.querySelector('#rb-lk-allhead .rb-lk-allrow');
@@ -2153,44 +2135,61 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     uni.cards === 2 && uni.itemCard === false && JSON.stringify(uni.eyebrows) === JSON.stringify(['Look', 'Look']),
     JSON.stringify(uni));
   check('IA · a key piece never enters the Lookbook stream', uni.kpInStream === false);
-  // "Travel edit" is the noun everywhere now (Annie, 2026-08-12) — the
-  // strip, the stat line and the + New split all say it; "holiday" survives
-  // only in function names and class hooks.
-  const naming = await page.evaluate(() => {
-    // Chrome only — a trip SHE named "Ibiza holiday edit" is her words
-    window.__lkNewMenu(new MouseEvent('click'));
-    const menu = document.getElementById('rb-lk-newmenu')?.textContent || '';
-    document.getElementById('rb-lk-newmenu')?.remove();
-    return {
-      sec: document.querySelector('#rb-lk-hol .rb-lk-sec')?.textContent || '',
-      stat: document.querySelector('#rb-lk-bar .rb-lk-statline')?.textContent || '',
-      menu,
-    };
-  });
-  check('IA · "Travel edit" is the noun in every piece of chrome',
-    naming.sec === 'Travel edit' && /travel edit/.test(naming.stat) && /New travel edit/.test(naming.menu)
-      && !/holiday/i.test(naming.sec + naming.stat + naming.menu),
-    JSON.stringify(naming));
-  // The dashed + New card retired with the column redesign (2026-08-18):
-  // + New ▾ above is the creation door, the header count the affordance.
-  check('IA · holiday edits ride the pinned row, mosaic cards on the column',
-    uni.holShown && uni.holCards === 1 && uni.holNew === false && uni.holMeta === '12 pieces · 6 looks · 7–14 Aug',
-    JSON.stringify([uni.holShown, uni.holCards, uni.holNew, uni.holMeta]));
-  check('IA · one + New button, split two ways', uni.newSplit === true);
-  check('IA · the top row carries the collection stat; sort/Refine align with All looks',
-    uni.stat === '2 looks · 1 travel edit' && uni.allRow.label === 'All looks'
+  // Trips left the Lookbook for the Diary (Diary IA phase 2, 2026-09-08):
+  // no pinned strip, no travel count in the stat, no split menu — the one
+  // creation door on the Lookbook is + New look.
+  check('IA · no travel strip and no trip in the stream — trips live in the Diary',
+    uni.holGone === true && uni.tripInStream === false, JSON.stringify([uni.holGone, uni.tripInStream]));
+  check('IA · + New look is the one creation door (no split)', uni.newLook === true);
+  check('IA · the top row carries the looks count alone; sort/Refine align with All looks',
+    uni.stat === '2 looks' && uni.allRow.label === 'All looks'
       && uni.allRow.sortHere === true && uni.allRow.sortInBar === false,
     JSON.stringify([uni.stat, uni.allRow]));
-  const split = await page.evaluate(() => {
-    const btn = Array.from(document.querySelectorAll('#rb-lk-bar button')).find((b) => /\+ New ▾/.test(b.textContent));
-    btn.click();
-    const menu = document.getElementById('rb-lk-newmenu');
-    const opts = menu ? Array.from(menu.querySelectorAll('.card button')).map((b) => b.textContent) : [];
-    menu?.remove();
-    return { opts };
+  // The Diary's + menu offers the two things a diary holds: a look for a
+  // day and a travel edit. The intake opens OVER the Diary, and the trip
+  // it makes belongs to the Diary — back climbs to it, the Diary tab lights.
+  const diaryAdd = await page.evaluate(async () => {
+    window.__rbNavGo('diary');
+    await new Promise((r) => setTimeout(r, 500));
+    const addBtn = document.querySelector('#sn-cal .rb-mv-add');
+    if (addBtn) addBtn.click();
+    await new Promise((r) => setTimeout(r, 100));
+    const menu = document.getElementById('rb-dy-addmenu');
+    const opts = menu ? Array.from(menu.querySelectorAll('.card button .t')).map((b) => b.textContent) : [];
+    const subs = menu ? Array.from(menu.querySelectorAll('.card button .s')).map((b) => b.textContent) : [];
+    const tripBtn = menu && Array.from(menu.querySelectorAll('.card button')).find((b) => /Add a travel edit/.test(b.textContent));
+    if (tripBtn) tripBtn.click();
+    await new Promise((r) => setTimeout(r, 200));
+    const modal = document.getElementById('tv-brief-modal');
+    const diaryStillOpen = document.getElementById('sn-page')?.style.display === 'block';
+    const files = /files itself into the diary/.test(modal?.textContent || '');
+    modal?.remove();
+    // Open the seeded trip: it renders over a closed Diary, lights Diary, backs to Diary
+    window.__snOpenItem(1754640000001);
+    await new Promise((r) => setTimeout(r, 700));
+    const tvOpen = document.getElementById('tv-result-page')?.style.display !== 'none';
+    const diaryLit = document.getElementById('rb-tn-diary')?.classList.contains('active');
+    const lookbookLit = document.getElementById('rb-tn-lookbook')?.classList.contains('active');
+    const back = document.querySelector('#tv-result-page .tvm-back')?.textContent;
+    window.__tvEditDetails();
+    const del = !!document.getElementById('tv-ed-delete');
+    document.getElementById('tv-edit-modal')?.remove();
+    window.__tvGoBack();
+    await new Promise((r) => setTimeout(r, 500));
+    const landedDiary = document.getElementById('sn-page')?.classList.contains('rb-cal-on') && location.pathname === '/diary';
+    return { hadAdd: !!addBtn, opts, subs, hadModal: !!modal, diaryStillOpen, files, tvOpen, diaryLit, lookbookLit, back, del, landedDiary };
   });
-  check('IA · the split offers New Look and New travel edit',
-    JSON.stringify(split.opts) === JSON.stringify(['New Look', 'New travel edit']), JSON.stringify(split.opts));
+  check('IA · the Diary\'s + menu offers Add a look and Add a travel edit',
+    diaryAdd.hadAdd && JSON.stringify(diaryAdd.opts) === JSON.stringify(['Add a look', 'Add a travel edit'])
+      && /Lookbook · 2 looks/.test(diaryAdd.subs[0] || '') && diaryAdd.subs[1] === 'Where are we packing for?',
+    JSON.stringify(diaryAdd));
+  check('IA · the travel intake opens over the Diary and says where the trip files',
+    diaryAdd.hadModal && diaryAdd.diaryStillOpen && diaryAdd.files, JSON.stringify(diaryAdd));
+  check('IA · a trip lights the Diary, backs to the Diary, and can be deleted from Edit details',
+    diaryAdd.tvOpen && diaryAdd.diaryLit === true && diaryAdd.lookbookLit === false && diaryAdd.back === '← Diary'
+      && diaryAdd.del === true && diaryAdd.landedDiary === true, JSON.stringify(diaryAdd));
+  await page.evaluate(() => window.__lkGo());
+  await page.waitForTimeout(400);
 
   // C1 — a Lookbook card opens the SAVED LOOK DETAIL: the look and its
   // history, no date, no weather, no share (Annie's beta catch 2026-08-17;

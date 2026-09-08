@@ -5625,10 +5625,7 @@
         const empty = document.getElementById('sn-empty');
         if (!grid) return;
         grid.style.display = 'none'; // legacy element — the looks module owns the page
-        // The looks module paints the whole view (travel row + stream +
-        // detail/composer).
-        const hasContent = (typeof _lkLooks !== 'undefined' && _lkLooks.length)
-          || _lkShelfItems().length || _lkHolidayItems().length;
+        // The looks module paints the whole view (stream + detail/composer).
         empty.style.display = 'none';
         _snClearWays();
         if (_lkEnsureDom()) document.getElementById('rb-lk-wrap').style.display = 'block';
@@ -9730,7 +9727,9 @@
         _lkEnsureCss();
         const wrap = document.createElement('div');
         wrap.id = 'rb-lk-wrap';
-        wrap.innerHTML = '<div id="rb-lk-bar"></div><div id="rb-lk-hol"></div><div id="rb-lk-allhead"></div><div id="rb-lk-grid"></div><div id="rb-lk-body"></div>';
+        // No travel row (Diary IA phase 2, 2026-09-08): a trip is a plan and
+        // lives in the Diary; the Lookbook holds looks only.
+        wrap.innerHTML = '<div id="rb-lk-bar"></div><div id="rb-lk-allhead"></div><div id="rb-lk-grid"></div><div id="rb-lk-body"></div>';
         const empty = sn.querySelector('#sn-empty');
         (empty || grid).parentNode.insertBefore(wrap, (empty || grid).nextSibling);
         return true;
@@ -9756,9 +9755,9 @@
       function _lkPaint() {
         if (_snFilter !== 'looks' || !_lkEnsureDom()) return;
         const shelfItems = _lkShelfItems();
-        const holidays = _lkHolidayItems();
         const streamN = _lkLooks.length + shelfItems.length;
-        const any = streamN || holidays.length;
+        // Travel edits no longer count — they live in the Diary (2026-09-08).
+        const any = streamN;
         // ONE DOOR (FTUE pass 2026-08-12): an empty Lookbook IS the
         // composer, whatever route landed here — the seg's Looks tab, a
         // bridge, a delete that emptied it. Guarding here rather than at
@@ -9787,13 +9786,9 @@
         const grid = document.getElementById('rb-lk-grid');
         const body = document.getElementById('rb-lk-body');
         if (!bar || !grid || !body) return;
-        const hol = document.getElementById('rb-lk-hol');
         const allHead = document.getElementById('rb-lk-allhead');
         const detail = _lkView !== 'grid';
         bar.style.display = detail || !any ? 'none' : 'flex';
-        // The travel strip appears with the first look, edits or not — its
-        // zero state is the invitation (FTUE pass 2026-08-12).
-        if (hol) hol.style.display = detail || !any ? 'none' : 'block';
         if (allHead) allHead.style.display = detail || !any ? 'none' : 'block';
         grid.style.display = detail || !any ? 'none' : 'grid';
         if (detail) {
@@ -9810,21 +9805,14 @@
         }
         body.innerHTML = any ? '' : _lkEmptyHtml();
         if (!any) { _lkHomeSync(); return; }
-        // Holiday edits ride a pinned row above the stream (IA refinement
-        // 2026-08-10) — they still band across the Diary as before.
-        if (hol) hol.innerHTML = _lkHolidayRowHtml(holidays);
         const refN = _lkRefineCount();
-        // Top row: the collection stat where sort/Refine used to sit —
-        // those moved down to align with the All looks section (Annie,
-        // 2026-08-10) — beside the + New split.
-        const statBits = [];
-        if (streamN) statBits.push(_lkN(streamN, 'look'));
-        // The edits half of the line always speaks — "no edits yet" is the
-        // invitation's caption, not an omission (FTUE pass 2026-08-12).
-        statBits.push(holidays.length ? _lkN(holidays.length, 'travel edit') : 'no edits yet');
-        bar.innerHTML = '<span class="rb-lk-statline">' + _waEsc(statBits.join(' · ')) + '</span>' +
+        // Top row: the collection stat (looks only — trips moved to the
+        // Diary, 2026-09-08) beside the one creation door, + New look. The
+        // split menu retired with the travel edit; a trip is added from
+        // the Diary's + menu.
+        bar.innerHTML = '<span class="rb-lk-statline">' + _waEsc(_lkN(streamN, 'look')) + '</span>' +
           '<span style="flex:1"></span>' +
-          '<button type="button" class="rb-lk-act" onclick="window.__lkNewMenu(event)">+ New ▾</button>';
+          '<button type="button" class="rb-lk-act" onclick="window.__lkNew()">+ New look</button>';
         // The All looks section header carries its own controls. They now
         // RENDER at every count and sit inert below four looks (FTUE pass
         // 2026-08-12, superseding "withheld until a Look exists") — a
@@ -11607,7 +11595,6 @@
         pop.innerHTML = '<div style="position:absolute;inset:0" onclick="document.getElementById(\'rb-lk-newmenu\').remove()"></div>' +
           '<div class="card" style="position:absolute;min-width:200px;background:#FDFCFA;border:0.5px solid rgba(32,32,33,0.16);border-radius:10px;box-shadow:0 10px 34px rgba(32,32,33,0.16);padding:6px;display:flex;flex-direction:column">' +
           '<button onclick="document.getElementById(\'rb-lk-newmenu\').remove();window.__lkNew()" style="border:none;background:transparent;padding:11px 13px;border-radius:7px;font-size:12.5px;color:var(--ink);cursor:pointer;font-family:inherit;text-align:left">New Look</button>' +
-          '<button onclick="document.getElementById(\'rb-lk-newmenu\').remove();window.__lkNewHoliday()" style="border:none;background:transparent;padding:11px 13px;border-radius:7px;font-size:12.5px;color:var(--ink);cursor:pointer;font-family:inherit;text-align:left">New travel edit</button>' +
           '</div>';
         document.body.appendChild(pop);
         const card = pop.querySelector('.card');
@@ -11629,9 +11616,12 @@
       // "+ New holiday edit" opens the where/when/vibe intake directly and
       // lands on the travel edit page (hifi 2026-08-10) — a deliberate
       // exception to the every-route-lands-on-the-prompt rule.
+      // The Diary's "Add a travel edit" (2026-09-08): the intake opens OVER
+      // the Diary (cancel leaves her where she was), and the trip page
+      // closes the Diary underneath when it renders (__tvRenderResult).
       window.__lkNewHoliday = function() {
-        if (window.__snClose) window.__snClose();
-        setTimeout(function() { if (window.__tvOpen) window.__tvOpen({}); }, 120);
+        document.getElementById('rb-lk-newmenu')?.remove();
+        if (window.__tvOpen) window.__tvOpen({});
       };
 
       // ── Composer handlers ───────────────────────────────────────────────
@@ -14428,7 +14418,8 @@
         if (tvResultPage) tvResultPage.style.display = 'none';
         _waAfterAdd = null; // leaving the edit cancels any armed snap-mine swap
         window.rbClearCrumb && window.rbClearCrumb();
-        if (window.__snOpen) { window.__snOpen(); }
+        // Back climbs to the Diary — the list a trip lives in (2026-09-08)
+        if (window.__rbDiaryOpen) { window.__rbDiaryOpen(); }
         else { window._rbNav && window._rbNav('/dashboard'); }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
@@ -14575,6 +14566,7 @@
             <p style="${labelCss}">The vibe</p>
             <input id="tv-vibe" value="${_waEsc(st.vibe || '')}" placeholder="Chic, cool — refined Mediterranean" style="${inputCss};margin-bottom:16px">
             <button id="tv-cta" onclick="window.__tvSubmit()" style="width:100%;padding:14px 24px;border:none;border-radius:40px;background:#202021;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:#fff;font-family:inherit;transition:opacity .2s">Open the travel edit →</button>
+            <p style="font-family:${serif};font-style:italic;font-size:13px;color:var(--ink-faint);text-align:center;margin:12px 0 0">It files itself into the diary, on those dates.</p>
           </div>`;
         document.body.appendChild(modal);
         setTimeout(() => { const el = document.getElementById('tv-dest'); if (el && !el.value) el.focus(); }, 60);
@@ -16221,6 +16213,15 @@ body>*:not(#tv-result-page){display:none !important}
         }
         tvStyleEl.textContent = _TV_CSS;
         _rbHideResultPages('tv');
+        // A trip is a plan: it belongs to the Diary (2026-09-08). Any
+        // opener that renders one fixed overlay from inside another closes
+        // the higher-z page first (the standing rule) — and the nav lights
+        // the Diary while the trip is on screen.
+        (function() {
+          const snEl = document.getElementById('sn-page'); if (snEl) snEl.style.display = 'none';
+          const inEl = document.getElementById('rb-insp-page'); if (inEl) inEl.style.display = 'none';
+        })();
+        window._rbNavOrigin = 'diary';
         window.__mbCloseResult && window.__mbCloseResult();
 
         const swapSvg = _tvSwapSvg;
@@ -16287,7 +16288,7 @@ body>*:not(#tv-result-page){display:none !important}
         window.rbSetCrumb && window.rbSetCrumb([{ label: 'Travel edit' }]);
         try { tvResultPage.innerHTML = `
           <div class="tvm-wrap">
-            <button class="tvm-back tv-noprint" onclick="window.__tvGoBack()">← Lookbook</button>
+            <button class="tvm-back tv-noprint" onclick="window.__tvGoBack()">← Diary</button>
             <header class="tvm-mast">
               <div style="min-width:0;flex:1">
                 <div class="tvm-eyebrow">${_waEsc(_rbTrackCfg('travel').artifact.eyebrow)}</div>
@@ -16484,8 +16485,24 @@ body>*:not(#tv-result-page){display:none !important}
             <p style="${labelCss}">The vibe</p>
             <input id="tv-ed-vibe" value="${_waEsc(data.vibe || '')}" placeholder="Chic, cool — refined Mediterranean" style="${inputCss};margin-bottom:18px">
             <button onclick="window.__tvEditDetailsSave()" style="width:100%;padding:14px 24px;border:none;border-radius:40px;background:#202021;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:#fff;font-family:inherit">Save the details</button>
+            ${_tvActiveSaveId ? `<button id="tv-ed-delete" onclick="window.__tvDeleteTrip()" style="display:block;width:100%;margin-top:14px;padding:6px 0;border:none;background:none;font-size:11px;letter-spacing:.06em;color:var(--ink-faint);cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px">Delete this trip</button>` : ''}
           </div>`;
         document.body.appendChild(modal);
+      };
+      // A trip's delete names what goes with it (2026-08-20) and lands her
+      // back in the Diary, where the trip lived (2026-09-08).
+      window.__tvDeleteTrip = function() {
+        const id = _tvActiveSaveId;
+        if (!id) return;
+        document.getElementById('tv-edit-modal')?.remove();
+        window._rbConfirmDelete('Delete this trip? Its looks and packing list go with it.', function() {
+          snRemove(id);
+          _tvActiveSaveId = null;
+          if (tvResultPage) tvResultPage.style.display = 'none';
+          window.rbClearCrumb && window.rbClearCrumb();
+          if (window.__rbDiaryOpen) window.__rbDiaryOpen();
+          _waShowToast('Trip deleted');
+        });
       };
       window.__tvEditDetailsSave = function() {
         const data = window.__lastTvData;
@@ -20224,6 +20241,14 @@ body>*:not(#tv-result-page){display:none !important}
 .rb-mv-nav{display:flex;gap:6px}
 .rb-mv-nav button{width:32px;height:32px;border:0.5px solid rgba(32,32,33,0.18);border-radius:50%;background:#fff;color:#6E6A64;font-size:14px;cursor:pointer;line-height:1}
 .rb-mv-nav button:hover{border-color:var(--ink,#202021);color:var(--ink,#202021)}
+.rb-mv-nav .rb-mv-add{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:0}
+#rb-dy-addmenu{position:fixed;inset:0;z-index:930}
+#rb-dy-addmenu .card{position:absolute;min-width:216px;background:#fff;border:1px solid var(--rule-mid,rgba(32,32,33,0.14));border-radius:var(--rad-sm,8px);box-shadow:0 10px 32px rgba(32,32,33,0.12);padding:6px 0;display:flex;flex-direction:column}
+#rb-dy-addmenu .card button{display:flex;align-items:flex-start;gap:11px;border:none;background:transparent;padding:10px 16px;cursor:pointer;font-family:inherit;text-align:left;color:var(--ink,#202021)}
+#rb-dy-addmenu .card button:hover{background:var(--cream-100,#F7F4EE)}
+#rb-dy-addmenu .card button svg{flex:none;margin-top:1px;stroke:var(--ink,#202021);fill:none;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
+#rb-dy-addmenu .card .t{font-size:13px;line-height:1.2}
+#rb-dy-addmenu .card .s{font-family:'Cormorant',Georgia,serif;font-style:italic;font-size:12.5px;line-height:1.3;color:var(--ink-soft,#5C574F);margin-top:3px}
 .rb-mv-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:8px}
 .rb-mv-dow div{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding-left:2px}
 .rb-mv-cal{display:flex;flex-direction:column;gap:8px}
@@ -20294,6 +20319,33 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           }
         }
         window._mvSetView = _mvSetView;
+        // The Diary's + menu (design Robes_Diary_IA, 2026-09-08): a look
+        // for a day (the shared add-a-look picker, today by default) or a
+        // travel edit (the where/when/vibe intake, over the Diary).
+        window.__rbDiaryAddMenu = function(ev) {
+          if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+          document.getElementById('rb-dy-addmenu')?.remove();
+          const n = (typeof _lkLooks !== 'undefined' && Array.isArray(_lkLooks)) ? _lkLooks.length : 0;
+          const pop = document.createElement('div');
+          pop.id = 'rb-dy-addmenu';
+          pop.innerHTML = '<div style="position:absolute;inset:0" onclick="document.getElementById(\'rb-dy-addmenu\').remove()"></div>' +
+            '<div class="card">' +
+            '<button onclick="document.getElementById(\'rb-dy-addmenu\').remove();window.__mvWear(\'' + _pdLocalISO() + '\')">' +
+              '<svg width="15" height="15" viewBox="0 0 16 16"><path d="M4.5 2.2h7v11.6l-3.5-2.6-3.5 2.6z"/></svg>' +
+              '<span><span class="t">Add a look</span><span class="s" style="display:block">Lookbook · ' + _lkN(n, 'look') + '</span></span></button>' +
+            '<button onclick="document.getElementById(\'rb-dy-addmenu\').remove();window.__lkNewHoliday()">' +
+              '<svg width="15" height="15" viewBox="0 0 16 16"><path d="M1.6 8.7l12.8-4.4-2.1 3.6-3.9 1.4-2.3 4.4-1.4-3.9z"/></svg>' +
+              '<span><span class="t">Add a travel edit</span><span class="s" style="display:block">Where are we packing for?</span></span></button>' +
+            '</div>';
+          document.body.appendChild(pop);
+          const card = pop.querySelector('.card');
+          const btn = ev && ev.currentTarget;
+          if (btn && card) {
+            const r = btn.getBoundingClientRect();
+            card.style.top = Math.min(window.innerHeight - card.offsetHeight - 12, r.bottom + 6) + 'px';
+            card.style.left = Math.max(12, Math.min(window.innerWidth - card.offsetWidth - 12, r.right - card.offsetWidth)) + 'px';
+          }
+        };
         window.__mvNav = function(d) {
           _mvM += d;
           if (_mvM < 1) { _mvM = 12; _mvY--; }
@@ -20413,7 +20465,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           let html = `
             <div class="rb-mv-head">
               <h2 class="rb-mv-title">${_waEsc(monthName)}</h2>
-              <div class="rb-mv-nav"><button onclick="window.__mvNav(-1)" aria-label="Previous month">‹</button><button onclick="window.__mvNav(1)" aria-label="Next month">›</button></div>
+              <div class="rb-mv-nav"><button onclick="window.__mvNav(-1)" aria-label="Previous month">‹</button><button onclick="window.__mvNav(1)" aria-label="Next month">›</button><button class="rb-mv-add" onclick="window.__rbDiaryAddMenu(event)" aria-label="Add" title="Add"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M7 2.2v9.6M2.2 7h9.6"/></svg></button></div>
             </div>
             <div class="rb-mv-dow">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => '<div>' + d + '</div>').join('')}</div>
             <div class="rb-mv-cal">`;
