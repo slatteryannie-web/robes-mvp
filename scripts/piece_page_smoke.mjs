@@ -243,6 +243,18 @@ const SHOT = process.env.SHOT_DIR || '';
   check('look · pager reads 1 of 4', /1 of 4/i.test(t2));
   check('look · card header carries category · worn', /Tops/i.test(t2) && /Worn eight times/i.test(t2) && await page.locator('.rb-pc-cardhead').count() === 1);
   check('look · no wear ledger on the preview', await page.locator('.rb-pc-rule').count() === 0 && await page.locator('.rb-pc-wear').count() === 0);
+  // The card wears the Look panel's dress — compared against the panel underneath
+  const dress = await page.evaluate(() => {
+    const c = getComputedStyle(document.querySelector('.rb-pc-card')), p = getComputedStyle(document.querySelector('#sn-page .rbc-panel'));
+    const n = getComputedStyle(document.querySelector('.rb-pc-note')), q = document.querySelector('#sn-page .rbc-quote') && getComputedStyle(document.querySelector('#sn-page .rbc-quote'));
+    const t = getComputedStyle(document.querySelector('.rb-pc-tag')), lt = document.querySelector('#sn-page .rbc-tags .tg') && getComputedStyle(document.querySelector('#sn-page .rbc-tags .tg'));
+    const tags = getComputedStyle(document.querySelector('.rb-pc-tags'));
+    return { radius: [c.borderRadius, p.borderRadius], border: [c.borderWidth, p.borderWidth], noteWeight: [n.fontWeight, q && q.fontWeight], noteSize: [n.fontSize, q && q.fontSize],
+      tagBg: [t.backgroundColor, lt && lt.backgroundColor], tagRadius: t.borderRadius, sep: tags.borderTopWidth, noteSep: n.borderTopWidth };
+  });
+  check('look · the card has the Look panel\'s corners and hairline', dress.radius[0] === dress.radius[1] && dress.border[0] === dress.border[1], JSON.stringify(dress));
+  check('look · the note reads in the Look\'s light italic (300, 15px), no rule above it', dress.noteWeight[0] === '300' && dress.noteSize[0] === '15px' && dress.noteSep === '0px' && (!dress.noteWeight[1] || dress.noteWeight[1] === '300'), JSON.stringify(dress));
+  check('look · the tags are the Look\'s filled pills under a hairline', dress.tagRadius === '100px' && dress.sep !== '0px' && (!dress.tagBg[1] || dress.tagBg[0] === dress.tagBg[1]), JSON.stringify(dress));
   check('look · In N looks rail, then the record link', /In 1 look/i.test(t2) && /See the full record in your wardrobe/.test(t2));
   check('look · no build tile, no Style CTA on the preview', await page.locator('.rb-pc-build').count() === 0 && await page.locator('.rb-pc-cta').count() === 0);
   check('look · the nav stays on Lookbook', await page.locator('#rb-tn-lookbook').evaluate((e) => e.classList.contains('active')));
