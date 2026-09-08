@@ -4761,11 +4761,12 @@
 .rb-pc-brand{font:400 17px/1.3 var(--font-serif,Cormorant,Georgia,serif);font-style:italic;color:var(--ink-soft,#5C574F);margin-top:4px}
 .rb-pc-card{margin-top:18px;background:#fff;border:1px solid var(--rule,rgba(32,32,33,0.08));border-radius:3px;overflow:hidden}
 .rb-pc-cardhead{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;font:400 9px/1 var(--font-sans,Inter,sans-serif);letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint,#A89880)}
-.rb-pc-photo{position:relative;margin:0 16px;height:330px;background:var(--cream-300,#EDE7DE);border-radius:2px;overflow:hidden}
-.rb-pc-card.nohead .rb-pc-photo{margin-top:16px;height:300px}
-.rb-pc-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.rb-pc-photo{position:relative;margin:0 auto;width:min(100% - 32px,390px);aspect-ratio:3/4;background:var(--cream-300,#EDE7DE);border-radius:2px;overflow:hidden}
+.rb-pc-card.nohead .rb-pc-photo{margin-top:16px}
+.rb-pc-photo img{width:100%;height:100%;object-fit:contain;display:block}
 .rb-pc-photo .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:400 10px/1 var(--font-sans,Inter,sans-serif);letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint,#A89880)}
-.rb-pc-rephoto{position:absolute;right:12px;top:12px;width:38px;height:38px;border-radius:100px;background:#fff;border:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(32,32,33,0.10);padding:0;color:var(--ink,#202021)}
+.rb-pc-rephoto{position:absolute;top:14px;right:14px;width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(250,248,245,.82);border:1px solid rgba(32,32,33,.10);border-radius:100px;color:#4F4A44}
+.rb-pc-rephoto:hover{background:#FAF8F5}
 .rb-pc-rephoto.busy{opacity:.5;pointer-events:none}
 .rb-pc-note{font:400 16px/1.4 var(--font-serif,Cormorant,Georgia,serif);font-style:italic;margin:16px 16px 0;padding-top:14px;border-top:1px solid var(--rule,rgba(32,32,33,0.08));color:var(--ink,#202021)}
 .rb-pc-tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 16px 16px}
@@ -4801,7 +4802,6 @@
 .rb-pc-quiet{display:block;margin:18px auto 0;background:none;border:none;padding:0;cursor:pointer;font:400 12px/1 var(--font-sans,Inter,sans-serif);color:var(--rose,#8E7077);font-family:inherit}
 @media(max-width:767px){
 .rb-pc-body{padding-bottom:110px}
-.rb-pc-photo{height:300px}
 }`;
       function _pcEnsure() {
         if (!document.getElementById('rb-piece-style')) {
@@ -4836,15 +4836,37 @@
         const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
         return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
       }
-      // Every wear the piece was ON THE BODY for — the wear's snapshot decides
-      // (a look worn in different shoes still counts for the shoes she wore).
+      // Every wear the piece was ON THE BODY for, from every place a wear is
+      // written: the Look entity's wears (the snapshot decides — a look worn
+      // in different shoes still counts for the shoes she wore), the daily
+      // looks she marked worn, and the diary's worn days. A wear logged
+      // against times_worn alone (accrual declined) has no date and can't
+      // list — the rule's count still carries it.
       function _pcWears(id) {
-        const sid = String(id), rows = [];
+        const sid = String(id), rows = [], seen = {};
+        const push = r => { const k = r.date + '|' + r.key; if (!r.date || seen[k]) return; seen[k] = true; rows.push(r); };
         (_lkLooks || []).forEach(l => {
           (l.wears || []).forEach(w => {
             const ids = (w.piece_ids && w.piece_ids.length) ? w.piece_ids : _lkPieceIds(l);
-            if (ids.map(String).indexOf(sid) > -1) rows.push({ date: String(w.worn_on || '').slice(0, 10), look: l });
+            if (ids.map(String).indexOf(sid) > -1) push({ date: String(w.worn_on || '').slice(0, 10), key: 'look:' + l.id, name: l.name || 'Saved look', open: "window.__rbPieceLookOpen('look','" + _waEsc(String(l.id)) + "')" });
           });
+        });
+        snLoad().forEach(i => {
+          const d = i.type === 'daily-look' ? i.dlData : null;
+          if (!d || !d.worn || typeof d.anchor_date !== 'string') return;
+          const ids = [];
+          (d.steps || []).forEach(st => (st.items || []).forEach(it => { if (it.wardrobe_match && it.wardrobe_match.id != null) ids.push(String(it.wardrobe_match.id)); }));
+          if (ids.indexOf(sid) < 0) return;
+          push({ date: d.anchor_date.slice(0, 10), key: 'daily:' + i.id, name: String(d.occasion_label || d.headline || i.title || 'Daily look').replace(/\.$/, ''),
+            open: "window.__rbPieceLookOpen('item','" + _waEsc(String(i.id)) + "')" });
+        });
+        _pdCacheRead().forEach(r => {
+          if (r.status !== 'worn' || !Array.isArray(r.item_ids) || r.item_ids.map(String).indexOf(sid) < 0) return;
+          const key = r.source_type + ':' + r.source_id;
+          if (r.source_type === 'look' && seen[String(r.day_date).slice(0, 10) + '|' + key]) return;
+          const parent = r.source_type === 'look' ? null : _pdParent(r.source_id);
+          push({ date: String(r.day_date || '').slice(0, 10), key, name: r.activity || r.headline || (parent && parent.title) || 'A day',
+            open: "window.__rbPieceDayOpen('" + _waEsc(String(r.source_type)) + "','" + _waEsc(String(r.source_id)) + "','" + _waEsc(String(r.day_date || '').slice(0, 10)) + "')" });
         });
         return rows.sort((a, b) => b.date.localeCompare(a.date));
       }
@@ -4852,8 +4874,9 @@
         const today = _pdLocalISO();
         return _pdCacheRead().some(r => r.source_type === 'look' && String(r.source_id) === String(l.id) && String(r.day_date || '') >= today);
       }
-      // The looks a piece lives in: her saved Looks first, then the days and
-      // trips that wear it (daily looks + travel edits from the lookbook).
+      // The looks a piece lives in: her SAVED Looks only (Annie, 2026-09-08 —
+      // a trip or a day wearing the piece is not a look; those reach the
+      // page through the wear rows instead).
       function _pcLooks(id) {
         const sid = String(id), out = [];
         (_lkLooks || []).forEach(l => {
@@ -4864,23 +4887,6 @@
             meta: last ? 'Worn ' + _lkFmt(last) : (_pcPinned(l) ? 'Pinned to a plan' : 'Not yet worn'),
             ts: last || String(l.created_at || ''),
             cells: _ltCells(_lkPieceIds(l)), photo: _lkHeroUrl(l),
-          });
-        });
-        snLoad().forEach(i => {
-          let ids = null;
-          if (i.type === 'daily-look' && i.dlData) {
-            ids = [];
-            (i.dlData.steps || []).forEach(s => (s.items || []).forEach(it => { if (it.wardrobe_match && it.wardrobe_match.id != null) ids.push(String(it.wardrobe_match.id)); }));
-          } else if (i.type === 'travel-edit' && i.tvData) {
-            ids = (i.tvData.capsule || []).filter(c => c.wardrobe_match && c.wardrobe_match.id != null).map(c => String(c.wardrobe_match.id));
-          }
-          if (!ids || ids.indexOf(sid) < 0) return;
-          const anchor = i.dlData && typeof i.dlData.anchor_date === 'string' ? i.dlData.anchor_date.slice(0, 10) : '';
-          out.push({
-            kind: 'item', id: i.id, title: i.title || (i.type === 'travel-edit' ? 'Travel edit' : 'Daily look'),
-            meta: i.type === 'travel-edit' ? ((i.tvData && i.tvData.dateLine) || 'Travel edit') : (_lkItemMeta(i) || 'Daily look'),
-            ts: anchor || String(i.id || ''),
-            cells: _ltCells(ids.filter((x, k) => ids.indexOf(x) === k)), photo: _pdHttp(i.img),
           });
         });
         return out.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
@@ -4950,7 +4956,7 @@
         body += '<div class="rb-pc-card' + (fromLook ? '' : ' nohead') + '">' +
           (fromLook ? '<div class="rb-pc-cardhead"><span>' + _waEsc(cat) + '</span><span>Worn ' + _waEsc(_pcTimes(worn)) + '</span></div>' : '') +
           '<div class="rb-pc-photo">' + (img ? '<img src="' + _waEsc(img) + '" alt="' + _waEsc(it.label || '') + '">' : '<div class="ph">' + (wish ? 'No photo' : 'Photo') + '</div>') +
-            (wish ? '' : '<button type="button" class="rb-pc-rephoto" id="rb-pc-rephoto" title="Replace photo" aria-label="Replace photo" onclick="window.__rbPiecePhoto()">' + _PC_CAM + '</button>' +
+            (wish ? '' : '<button type="button" class="rb-pc-rephoto" id="rb-pc-rephoto" title="Replace photo" aria-label="Replace photo" onclick="window.__rbPiecePhoto()">' + (typeof _LKM_REFRESH_SVG === 'string' ? _LKM_REFRESH_SVG : _PC_CAM) + '</button>' +
               '<input type="file" id="rb-pc-photoin" accept="image/*,.jpg,.jpeg,.png,.heic,.heif,.webp" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" onchange="window.__rbPiecePhotoPick(event)">') +
           '</div>' +
           (note ? '<p class="rb-pc-note">' + _waEsc(note) + '</p>' : '') +
@@ -4963,9 +4969,13 @@
           if (wears.length) {
             const shown = _pcWearsAll ? wears : wears.slice(0, 3);
             body += '<div class="rb-pc-wears">' + shown.map(w =>
-              '<button type="button" class="rb-pc-wear" onclick="window.__rbPieceLookOpen(\'look\',\'' + _waEsc(String(w.look.id)) + '\')">' +
-                '<span class="d">' + _waEsc(_pcFmtDay(w.date)) + '</span><span class="l">' + _waEsc(w.look.name || 'Saved look') + '</span>' + _PC_ARROW + '</button>').join('') + '</div>';
+              '<button type="button" class="rb-pc-wear" onclick="' + w.open + '">' +
+                '<span class="d">' + _waEsc(_pcFmtDay(w.date)) + '</span><span class="l">' + _waEsc(w.name) + '</span>' + _PC_ARROW + '</button>').join('') + '</div>';
             if (wears.length > 3) body += '<button type="button" class="rb-pc-link" onclick="window.__rbPieceWearsAll()">' + (_pcWearsAll ? 'Show the recent three' : 'View all ' + _waEsc(_pcTimes(wears.length).replace(' times', '')) + ' wears') + ' →</button>';
+          }
+          if (worn > wears.length) {
+            const k = worn - wears.length;
+            body += '<div class="rb-pc-empty" style="margin-top:' + (wears.length ? 12 : 14) + 'px">' + _waEsc(k === 1 ? 'One wear' : k + ' wears') + ' counted before Robes kept the dates.</div>';
           }
         }
 
@@ -5108,6 +5118,13 @@
           const item = snLoad().find(i => String(i.id) === String(id));
           if (item && window.__snOpenItem) window.__snOpenItem(item.id);
         }
+      };
+      window.__rbPieceDayOpen = function(sourceType, sourceId, date) {
+        const m = _pdCacheRead().find(r => r.source_type === sourceType && String(r.source_id) === String(sourceId) && String(r.day_date || '').slice(0, 10) === date)
+          || { source_type: sourceType, source_id: sourceId, day_date: date, day_index: 0 };
+        window.__rbPieceHide();
+        _pcCtx = null;
+        if (window._rbOpenPlannedDay) window._rbOpenPlannedDay(m);
       };
       // From a look's preview to the full record — same page, the other door.
       window.__rbPieceRecord = function() {

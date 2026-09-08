@@ -79,6 +79,11 @@ const SEED_WISH = [
   { id: 'wl-1', user_id: 'u-test', label: 'Camel wool coat', brand: 'Toteme', category: 'Outerwear', color: 'Camel', price: 690,
     image_url: 'https://res.cloudinary.com/demo/image/upload/wl-1.jpg', note: 'For the winter edit.', source_type: 'robes', source_label: null, created_at: '2026-08-01T10:00:00Z' },
 ];
+const SEED_LOOKBOOK = [
+  { id: 1756000000000, user_id: 'u-test', type: 'daily-look', title: 'Coffee with Mum', subtitle: '', img: null, created_at: '2026-08-24T09:00:00Z',
+    data: { dlData: { headline: 'Coffee with Mum.', occasion_label: 'Coffee with Mum', anchor_date: '2026-08-24', worn: true, stylist_summary: '', palette: [],
+      steps: [{ title: 'The Anchor', items: [{ name: 'Cream silk shirt', category: 'Tops', wardrobe_index: 0, wardrobe_match: { id: 'w-top1', label: 'Cream silk shirt', image_url: null, color: 'Cream' }, alternates: [] }] }] } } },
+];
 const DAILY_RESP = {
   headline: 'Coffee run, elevated.', occasion_label: 'a coffee run', stylist_summary: 'The shirt leads; everything else stays quiet.',
   transition_tip: '', palette: ['#EDE7DE'],
@@ -116,6 +121,7 @@ async function boot(browser, { width = 1280, path = '/dashboard' } = {}) {
     let body = '[]';
     if (u.includes('wardrobe_items')) body = JSON.stringify(wardrobe());
     else if (u.includes('wishlist_items')) body = JSON.stringify(SEED_WISH);
+    else if (u.includes('lookbook_items')) body = JSON.stringify(SEED_LOOKBOOK);
     else if (u.includes('/looks')) body = JSON.stringify(SEED_LOOKS);
     else if (u.includes('look_pieces')) body = JSON.stringify(SEED_PIECES);
     else if (u.includes('/wears')) body = JSON.stringify(SEED_WEARS);
@@ -170,14 +176,19 @@ const SHOT = process.env.SHOT_DIR || '';
   check('wardrobe · the favourite star sits in the header', await page.locator('.rb-pc-head .rb-pc-star').count() === 1);
   check('wardrobe · no category/worn header on the card (the Worn rule carries it)', await page.locator('.rb-pc-cardhead').count() === 0);
   check('wardrobe · the photo renders with a replace-photo button', await page.locator('.rb-pc-photo img').count() === 1 && await page.locator('#rb-pc-rephoto').count() === 1);
+  const ph = await page.evaluate(() => { const b = document.querySelector('.rb-pc-photo').getBoundingClientRect(); const i = document.querySelector('.rb-pc-photo img'); return { w: b.width, h: b.height, fit: getComputedStyle(i).objectFit }; });
+  check('wardrobe · the photo is shown whole in a portrait frame, never a landscape crop', ph.fit === 'contain' && ph.h > ph.w * 0.8, JSON.stringify(ph));
+  check('wardrobe · the replace icon is the Look photograph\'s glyph', await page.evaluate(() => document.querySelector('#rb-pc-rephoto svg path')?.getAttribute('d')?.startsWith('M1.4 5.2')));
   check('wardrobe · the note reads in italic serif', t.includes('Close-fitting base under the open shirt.'));
   const tags = await page.locator('.rb-pc-tag').allInnerTexts();
   check('wardrobe · tags carry the season band and the wear-for defaults', tags.includes('Year-round') && tags.includes('Everyday'), JSON.stringify(tags));
   check('wardrobe · Worn rule reads the count in words', /Worn\s*eight times/i.test(t), t.slice(0, 400));
   const wearRows = await page.locator('.rb-pc-wear').allInnerTexts();
-  check('wardrobe · recent wears list date + look', wearRows.length === 2 && /Jul/.test(wearRows[0]) && wearRows[0].includes('The Thursday one'), JSON.stringify(wearRows));
+  check('wardrobe · recent wears list date + look, newest first', wearRows.length === 3 && /Aug/.test(wearRows[0]) && /Jul/.test(wearRows[1]) && wearRows[1].includes('The Thursday one'), JSON.stringify(wearRows));
+  check('wardrobe · a worn diary day lists as a wear with its occasion', /Coffee with Mum/.test(wearRows[0]), wearRows[0]);
   check('wardrobe · no view-all link below three wears', await page.locator('.rb-pc-link').count() === 0);
-  check('wardrobe · In N looks rail names the saved look', /In 1 look/i.test(t) && t.includes('The Thursday one') && /Worn 23 Jul/.test(t));
+  check('wardrobe · wears counted before the diary are named, not hidden', /5 wears counted before Robes kept the dates/.test(t), t.slice(0, 500));
+  check('wardrobe · In N looks rail names the saved look — and only saved looks', /In 1 look/i.test(t) && t.includes('The Thursday one') && /Worn 23 Jul/.test(t) && !t.includes('Coffee with Mum.'));
   check('wardrobe · the dashed build tile invites the next look', await page.locator('.rb-pc-build').count() === 1 && t.includes('A second look') && t.includes('Build it from this piece'));
   check('wardrobe · Style it three ways is the one full-width commitment', await page.locator('.rb-pc-cta').count() === 1 && /Style it three ways/i.test(await page.locator('.rb-pc-cta').innerText()));
   check('wardrobe · the nav lights Wardrobe', await page.locator('#rb-tn-wardrobe').evaluate((e) => e.classList.contains('active')));
@@ -210,8 +221,14 @@ const SHOT = process.env.SHOT_DIR || '';
     writes.some((w) => w.method === 'PATCH' && /wardrobe_items\?id=eq\.w-top1/.test(w.url) && w.body && w.body.hero_position != null)
     && await page.locator('.rb-pc-star').evaluate((e) => e.classList.contains('on')));
 
-  // A wear row opens the look
-  await page.locator('.rb-pc-wear').first().click();
+  // A diary-day wear row opens the day; a look wear row opens the look
+  await page.locator('.rb-pc-wear', { hasText: 'Coffee with Mum' }).click();
+  await page.waitForTimeout(700);
+  check('wear row · a worn day opens as the day', !(await pg.isVisible()) && await page.locator('#dl-result-page').isVisible()
+    && (await page.locator('#dl-result-page').innerText()).includes('Coffee with Mum'));
+  await page.evaluate(() => window.__rbPieceOpen('w-top1', { from: 'wardrobe' }));
+  await page.waitForTimeout(300);
+  await page.locator('.rb-pc-wear', { hasText: 'The Thursday one' }).first().click();
   await page.waitForTimeout(600);
   check('wear row · opens the saved look', !(await pg.isVisible()) && (await page.locator('#sn-page').innerText()).includes('The Thursday one'));
 
@@ -285,7 +302,7 @@ const SHOT = process.env.SHOT_DIR || '';
   check('daily · opens from the look with the headline as the way back', await pg.isVisible() && (await page.locator('.rb-pc-back').innerText()).trim() === 'Coffee run, elevated');
   // The rack groups Canvas before Anchor, so the first row is the jeans.
   check('daily · pager over the two owned pieces', /2 of 2/i.test(t) && t.includes('Barrel-leg jeans'), t.slice(0, 200));
-  check('daily · the rail names the daily look itself alongside the saved look', /In 2 looks/i.test(t) && t.includes('Coffee run, elevated.'), t.slice(0, 300));
+  check('daily · the rail holds SAVED looks only — the daily look is not in it', /In 1 look/i.test(t) && !t.includes('Coffee run, elevated.'), t.slice(0, 300));
   check('daily · the nav lights Lookbook under a daily look', await page.locator('#rb-tn-lookbook').evaluate((e) => e.classList.contains('active')));
   await page.locator('.rb-pc-back').click();
   await page.waitForTimeout(300);
