@@ -627,7 +627,7 @@ const browser = await chromium.launch(
     editMode.stripAdds >= 1 && editMode.addPiece === true, JSON.stringify([editMode.stripAdds, editMode.addPiece]));
   check('detail · The Look is the standing 4:5 board',
     d.lookv2 && d.boardTiles === 4 && d.boardN === '4', JSON.stringify([d.lookv2, d.boardTiles, d.boardN]));
-  check('detail · the panel head is the console\'s', d.headLabel === 'The look · 4 pieces', d.headLabel);
+  check('detail · the panel head reads The look — the count lives on the rack alone', d.headLabel === 'The look', d.headLabel);
   check('detail · the styling note rides the panel quote slot', /Cream silk shirt with/.test(d.quote || ''), d.quote);
   check('detail · ownership line is the canonical copy', /4.of.4 from your wardrobe/.test(d.yours || ''), d.yours);
   check('detail · a quiet delete exists', d.deleteLink === true);
@@ -979,17 +979,18 @@ const browser = await chromium.launch(
     JSON.stringify(pinWrite?.body?.[0] || null));
   check('pin · the day carries the look\'s pieces', (pinWrite?.body?.[0]?.item_ids || []).length === 4,
     JSON.stringify(pinWrite?.body?.[0]?.item_ids || null));
-  // The ✕ takes the pin back (Annie, 2026-09-08: the banner needs a cancel).
-  const unpinned = await page.evaluate(async () => {
+  // The ✕ closes the strip and NOTHING else (Annie, 2026-09-09: closing the
+  // banner had unpinned the day) — the pin stays in the diary.
+  const wBeforeX = writes.length;
+  const dismissed = await page.evaluate(async () => {
     document.querySelector('.rb-lk-pinstrip button.x')?.click();
     await new Promise((r) => setTimeout(r, 300));
     return { strip: !!document.querySelector('.rb-lk-pinstrip') };
   });
-  check('pin · the ✕ unpins the day and the strip goes with it', unpinned.strip === false, JSON.stringify(unpinned));
   await page.waitForTimeout(1200);
-  check('pin · the unpin deletes the planned_days source',
-    writes.some((w) => w.method === 'DELETE' && /^planned_days/.test(w.url) && /lk-1/.test(w.url)),
-    JSON.stringify(writes.filter((w) => /planned_days/.test(w.url)).map((w) => w.method + ' ' + w.url).slice(-4)));
+  check('pin · the ✕ closes the strip and the pin stays — nothing is written or deleted',
+    dismissed.strip === false && writes.length === wBeforeX,
+    JSON.stringify([dismissed, writes.slice(wBeforeX).map((w) => w.method + ' ' + w.url)]));
   await ctx.close();
 }
 
@@ -1451,6 +1452,42 @@ const browser = await chromium.launch(
     JSON.stringify(pieceWrite?.body || null));
   check('composer · a saved look has no wears (it is a plan, not a fact)',
     !writes.some((w) => w.method === 'POST' && /^wears/.test(w.url)));
+
+  // EDITING A SAVED LOOK dresses her model live (Annie, 2026-09-09): the
+  // editor opens on the canvas, a swap asks for one render after the beat
+  // of quiet, and Update reuses that frame — no second render.
+  await page.evaluate(async () => {
+    window.__lkOpen('lk-1');
+    await new Promise((r) => setTimeout(r, 1200));   // the detail open's own render lands
+  });
+  const rBeforeEdit = renders.length;
+  const editLive = await page.evaluate(async () => {
+    window.__lkEditToggle();
+    await new Promise((r) => setTimeout(r, 300));
+    const out = {
+      stage: !!document.querySelector('.rb-lk-editing .rb-lkm-stage'),
+      board: !!document.querySelector('.rb-lk-editing .rbc-board'),
+      head: document.querySelector('.rb-lk-editing .rbc-lhead .lab')?.textContent,
+      rackHead: document.querySelector('.rb-lk-editing .rb-lk-rackhead span')?.textContent,
+    };
+    window.__lkDSwapApply(2, 'w-sho2');
+    await new Promise((r) => setTimeout(r, 2600));
+    out.img = document.querySelector('.rb-lk-editing .rb-lkm-img')?.getAttribute('src');
+    window.__lkResave();
+    await new Promise((r) => setTimeout(r, 500));
+    return out;
+  });
+  check('editing · the editor opens on her model, not the mosaic — the count on the rack alone',
+    editLive.stage === true && editLive.board === false && editLive.head === 'The look' && /^The rack · 4 pieces/.test(editLive.rackHead || ''),
+    JSON.stringify(editLive));
+  check('editing · a swap dresses her once, after the beat of quiet',
+    renders.length === rBeforeEdit + 1 && renders[renders.length - 1].includes('Tan leather slides'),
+    JSON.stringify([renders.length - rBeforeEdit, renders[renders.length - 1]]));
+  await page.waitForTimeout(600);
+  const editRender = writes.filter((w) => w.method === 'PATCH' && /^looks\?id=eq\.lk-1/.test(w.url) && w.body?.render_url).pop();
+  check('editing · Update reuses the canvas frame — no second render',
+    !!editRender && editRender.body.render_url === 'https://img.test/render-' + (rBeforeEdit + 1) + '.jpg' && renders.length === rBeforeEdit + 1,
+    JSON.stringify([editRender?.body?.render_url, renders.length, rBeforeEdit]));
 
   // An unnamed look never reaches the grid (rule 02): Save declines and
   // puts the caret where the answer goes.
@@ -2672,7 +2709,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     loose.eyebrow === 'Your look' && loose.title === 'Built around the linen shirt.'
       && loose.wearing === false && loose.offer === false && loose.dayPencil === false
       && loose.cta === 'Save this look' && loose.keep === true
-      && loose.panelHead === 'The look · 2 pieces' && /Restyle it/.test(loose.restyle),
+      && loose.panelHead === 'The look' && /Restyle it/.test(loose.restyle),
     JSON.stringify(loose));
   // Both suggestions carry stored AI alternates. The shirt has owned peers
   // (her tops) so it flicks — through HER tops only, the alternate never
@@ -2786,7 +2823,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   });
   check('saved view · an untouched day holds the saved look as it reads on its page',
     savedView.saved === true && savedView.arrows === 0 && savedView.swaps === 0 && savedView.wears === 4
-      && savedView.head === 'The look · 4 pieces' && savedView.pieceDoors === 4,
+      && savedView.head === 'The look' && savedView.pieceDoors === 4,
     JSON.stringify(savedView));
   // (The weather pill reads the live forecast, absent under the stub.)
   check('saved view · the header stays the day\'s — the date, its name, the door to the look',
@@ -2806,7 +2843,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       && savedView.tagsDoor === true,
     JSON.stringify([savedView.camera, savedView.diary, savedView.note, savedView.tagsDoor]));
   check('saved view · Edit this day opens the console, The day, with the flick cluster',
-    savedView.editSaved === false && savedView.editArrows === 8 && /^The day · 4 pieces/.test(savedView.editHead || ''),
+    savedView.editSaved === false && savedView.editArrows === 8 && savedView.editHead === 'The day',
     JSON.stringify([savedView.editSaved, savedView.editArrows, savedView.editHead]));
 
   const adjusted = await page.evaluate(async () => {
@@ -2814,25 +2851,35 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     await new Promise((r) => setTimeout(r, 400));
     const head = document.querySelector('#dl-result-page header');
     const local = document.querySelector('#dl-result-page .rbc-hownote.dl-local');
+    const bar = head?.querySelector('.rb-lk-editbar');
     return {
-      banner: (head?.querySelector('.dlm-adjusted')?.textContent || '').replace(/\s+/g, ' '),
+      banner: (bar?.textContent || '').replace(/\s+/g, ' '),
+      acts: Array.from(bar?.querySelectorAll('button') || []).map((b) => b.textContent),
+      ink: bar?.querySelector('button.p')?.textContent,
       chip: local?.querySelector('.dl-todayonly')?.textContent,
       localCopy: (local?.textContent || '').replace(/\s+/g, ' '),
       undo: !!local?.querySelector('button'),
       marked: document.querySelectorAll('#dl-result-page .rbc-row.dl-localrow').length,
-      reset: !!head?.querySelector('.dlm-adjusted button.q'),
+      oldBanner: !!head?.querySelector('.dlm-adjusted'),
+      tagsDoor: !!document.querySelector('#dl-result-page [onclick*="__dlLookTagsEdit"]'),
     };
   });
-  check('rule 05 · one quiet line says the change is local, and names the untouched look',
-    /One change on this day only/.test(adjusted.banner) && /The Thursday one/.test(adjusted.banner)
-      && /is unchanged/.test(adjusted.banner),
+  // The day's change bar is the LOOK PAGE's (Annie, 2026-09-09): a day is
+  // only a date, so the two answers keep looks apart from diary entries —
+  // Update the saved look (wears untouched) or Save as a new one; Discard
+  // is the way back. No "this day only".
+  check('rule 05 · the change bar names the look and what happens to its wears',
+    /One change to/.test(adjusted.banner) && /The Thursday one/.test(adjusted.banner)
+      && /2 wears stay with it if you update/.test(adjusted.banner) && adjusted.oldBanner === false,
     adjusted.banner.slice(0, 160));
-  check('rule 05 · the changed row is marked Today only, names what it stands in for, and undoes',
-    adjusted.chip === 'Today only' && /Swapped in for the/.test(adjusted.localCopy)
+  check('rule 05 · the changed row is marked, names what it stands in for, and undoes',
+    adjusted.chip === 'Changed' && /Swapped in for the/.test(adjusted.localCopy)
       && adjusted.undo === true && adjusted.marked === 1,
     JSON.stringify(adjusted));
-  check('rule 05 · the banner offers both ways out — reset, or save as new',
-    adjusted.reset === true && /Save as a new look/.test(adjusted.banner), adjusted.banner.slice(0, 160));
+  check('rule 05 · Discard · Save as a new look · Update this look — Update is the ink fill',
+    adjusted.acts.join(' | ') === 'Discard | Save as a new look | Update this look' && adjusted.ink === 'Update this look',
+    JSON.stringify(adjusted.acts));
+  check('rule 05 · the tags on a day edit the look', adjusted.tagsDoor === true);
   check('rule 05 · the saved look itself is untouched',
     !writes.some((w) => w.method === 'DELETE' && /^look_pieces/.test(w.url)),
     JSON.stringify(writes.filter((w) => /look_pieces/.test(w.url)).map((w) => w.method + ' ' + w.url)));
@@ -2847,30 +2894,42 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       shown: !!m,
       text: text.slice(0, 160),
       suggested: m?.querySelector('#rb-dlnew-name')?.value,
-      keep: !!Array.from(m?.querySelectorAll('button') || []).find((b) => b.textContent === 'Just keep it on the day'),
+      btns: Array.from(m?.querySelectorAll('button') || []).map((b) => b.textContent),
+      noKeep: !Array.from(m?.querySelectorAll('button') || []).find((b) => /keep it on the day/.test(b.textContent)),
     };
   });
-  check('rule 06 · marking it worn asks the one question, with a name ready',
+  check('rule 06 · marking it worn asks the one question — Update, or Save as new — with a name ready',
     asked.shown === true && /You changed one piece/.test(asked.text)
-      && /Save it as a new look/.test(asked.text) && !!asked.suggested && asked.keep === true,
+      && /Update The Thursday one, or save it as a new look/.test(asked.text) && !!asked.suggested
+      && asked.btns.join(' | ') === 'Update this look | Save as a new look | Cancel' && asked.noKeep === true,
     JSON.stringify(asked));
 
   const kept = await page.evaluate(async () => {
-    Array.from(document.querySelectorAll('#rb-del-modal button'))
-      .find((b) => b.textContent === 'Just keep it on the day').click();
+    document.getElementById('rb-dlnew-upd')?.click();
     await new Promise((r) => setTimeout(r, 900));
-    return { worn: document.getElementById('dl-wear-btn')?.textContent };
+    return {
+      worn: document.getElementById('dl-wear-btn')?.textContent,
+      bar: !!document.querySelector('#dl-result-page .rb-lk-editbar'),
+      saved: !!document.querySelector('#dl-result-page .dlm-console.dlm-saved'),
+    };
   });
-  check('rule 06 · keeping it on the day logs the wear', /Worn/.test(kept.worn || ''), JSON.stringify(kept));
+  check('rule 06 · Update this look logs the wear, and the day reads settled on the updated look',
+    /Worn/.test(kept.worn || '') && kept.bar === false, JSON.stringify(kept));
+  await page.waitForTimeout(400);
+  check('rule 06 · the update rewrites the saved look\'s pieces',
+    writes.some((w) => w.method === 'POST' && /^look_pieces/.test(w.url)
+      && (Array.isArray(w.body) ? w.body : [w.body]).some((r) => r && r.look_id === 'lk-1')
+      && !(Array.isArray(w.body) ? w.body : [w.body]).some((r) => r && r.wardrobe_item_id === 'w-top1')),
+    JSON.stringify(writes.filter((w) => /look_pieces/.test(w.url)).map((w) => w.method + ' ' + w.url).slice(-4)));
   await page.waitForTimeout(400);
   const wearWrite = writes.filter((w) => w.method === 'POST' && /^wears/.test(w.url)).pop();
-  check('rule 06 · the wear goes to the ORIGINAL look, carrying what she actually wore',
+  check('rule 06 · the wear goes to the SAME look, carrying what she actually wore',
     wearWrite?.body?.look_id === 'lk-1'
       && Array.isArray(wearWrite?.body?.piece_ids)
       && wearWrite.body.piece_ids.length === 4
       && !wearWrite.body.piece_ids.includes('w-top1'),
     JSON.stringify(wearWrite?.body || null));
-  check('rule 06 · no second look was created by keeping it on the day',
+  check('rule 06 · no second look was created by updating',
     !writes.some((w) => w.method === 'POST' && /^looks/.test(w.url)),
     JSON.stringify(writes.filter((w) => /^looks/.test(w.url)).map((w) => w.method)));
   // …and the worn log names the difference rather than hiding it (1c).
@@ -2883,8 +2942,11 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     }));
     return { rows, lineage: !!document.querySelector('.rb-lk-lin') };
   });
-  check('1c · the worn log names the swap, adjusted on the day',
-    log.rows.some((r) => /instead of the/.test(r.pc) && /adjusted on the day/.test(r.pc)),
+  // Updated in place, the look now IS what she wore — the newest row
+  // reads as saved; the older adjusted wear still names its difference.
+  check('1c · the worn log reads the updated look as worn as saved, and keeps the older difference',
+    log.rows.length === 3 && /Worn as saved/.test(log.rows[0].pc)
+      && log.rows.some((r) => /instead of the/.test(r.pc)),
     JSON.stringify(log.rows));
 
   // The other answer: save it as a new look. The variant carries lineage,
@@ -2905,7 +2967,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     await new Promise((r) => setTimeout(r, 800));
     const head = document.querySelector('#dl-result-page header');
     return {
-      banner: !!head?.querySelector('.dlm-adjusted'),
+      banner: !!head?.querySelector('.rb-lk-editbar'),
       door: head?.querySelector('.dlm-lksrc')?.textContent.replace(/\s+/g, ' '),
     };
   });

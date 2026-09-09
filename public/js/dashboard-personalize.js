@@ -8051,7 +8051,7 @@
             </div>
             ${cfg.occHtml || ''}
             ${cfg.quoteHtml ? `<div class="rbc-quote">${cfg.quoteHtml}</div>` : ''}
-            ${cfg.heroUrl ? `<div class="rbc-hero"><img src="${_waEsc(cfg.heroUrl)}" alt="${_waEsc(cfg.heroAlt || 'The look')}">` : `<div class="rbc-board" data-n="${boardItems.length}">${boardItems.map((it, i) => _rbcTile(it, i === 0, cfg)).join('')}`}${cfg.lookActionHtml && cfg.shareBadge !== false ? `<button class="rbc-share-m" onclick="window.__rbShare&&window.__rbShare()" aria-label="Share this look"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></button>` : ''}${cfg.boardExtraHtml || ''}</div>
+            ${cfg.boardHtml ? cfg.boardHtml : cfg.heroUrl ? `<div class="rbc-hero"><img src="${_waEsc(cfg.heroUrl)}" alt="${_waEsc(cfg.heroAlt || 'The look')}">` : `<div class="rbc-board" data-n="${boardItems.length}">${boardItems.map((it, i) => _rbcTile(it, i === 0, cfg)).join('')}`}${cfg.lookActionHtml && cfg.shareBadge !== false ? `<button class="rbc-share-m" onclick="window.__rbShare&&window.__rbShare()" aria-label="Share this look"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></button>` : ''}${cfg.boardExtraHtml || ''}</div>
             ${cfg.fabricsHtml ? `<div class="rbc-fabrics">${cfg.fabricsHtml}</div>` : ''}
             <div class="rbc-lfoot">
               <span class="rbc-palette">${cfg.paletteHtml || ''}</span>
@@ -8960,6 +8960,7 @@
       var _lkEditMode = false;
       var _lkDetailView = null;          // saved look: 'photo' | 'model' (null = photo when one exists)
       var _lkDetailPhotoPending = false;
+      var _lkStripHidden = {};       // look id|date → the pinned reminder strip she closed (this session)
       // Edits show IN REAL TIME on the view (Annie's beta pass 2026-08-17 —
       // the old promotion gate asked BEFORE applying, so nothing visibly
       // changed): every flick and swap lands on this DRAFT, the mosaic and
@@ -9369,6 +9370,14 @@
                 if (typeof url === 'string' && url.indexOf('http') === 0) {
                   clearInterval(tick); delete _avBusy[l.id];
                   _lkPatch(l.id, { render_url: url, render_key: key });
+                  // The editor's canvas shares the frame (same key) — an
+                  // open-time render never doubles with a live one.
+                  try {
+                    if (!props.length && _lkModel && String(_lkModel.id) === String(avatarId)) {
+                      _lkmRenders[_lkmKey((l.pieces || []).map(p => p.id))] = url;
+                      _lkmPaintStage();
+                    }
+                  } catch (_) {}
                   if (_lkView !== 'new') _lkPaint();          // never disturb a half-built composer
                   try { if (typeof _lkHomeSync === 'function') _lkHomeSync(); } catch (e) {}
                 } else if (job.done) { clearInterval(tick); delete _avBusy[l.id]; }
@@ -9848,6 +9857,8 @@ button.rb-lk-live{cursor:pointer}
    its rack; a distinct class because the composer is queried by its own. */
 .rb-lk-held{margin-top:18px}
 .rb-lk-held .rb-lk-rackhead,.dlm-saved .rb-lk-rackhead{margin-top:0;min-height:30px}
+/* The rack head reads in the look head's register (.rbc-lhead .lab). */
+.rb-lk-sec.rb-lk-rackhead{font-size:9px;letter-spacing:.22em;color:var(--ink-faint)}
 .rb-lk-held .rb-lk-worn{margin-top:26px;padding-top:20px;border-top:1px solid var(--rule)}
 .rb-lk-foot{border-top:none;padding-top:0;margin-top:18px}
 .rb-lk-newmast{max-width:560px}
@@ -10617,7 +10628,8 @@ button.rb-lk-live{cursor:pointer}
           const tone = _ltToneOf(_waItems.find(w => String(w.id) === String(id)));
           return tone ? '<span style="background:' + _waEsc(tone) + '"></span>' : '';
         }).join('');
-        const headLabel = 'The look · ' + _lkN(ids.length, 'piece');
+        // The count belongs to the rack alone (Annie, 2026-09-09).
+        const headLabel = 'The look';
         if (props.length && !_pdHttp(l.render_url)) {
           const propBoard = props.map((row, i) => {
             const a = row.opts[row.oi] || {};
@@ -10642,6 +10654,21 @@ button.rb-lk-live{cursor:pointer}
             rackLabel: 'The Rack',
             onFlip: '__lkDFlip', onSwap: '__lkDSwap',
           }, items).lookHtml;
+        }
+        // EDITING dresses her model live (Annie, 2026-09-09: "live edits on
+        // the avatar instead of the mosaic") — the composer's canvas, seeded
+        // with the saved look's own photograph so nothing flickers, then
+        // re-rendered a beat after each change (_lkmSync's debounce + key
+        // cache). Without a model on file the board still carries the edit.
+        if (o.editing && _lkModel && !props.length) {
+          _lkmSeedFromLook(l);
+          return _lkModelPanelHtml({
+            saved: true,
+            items: ids.map(id => _waItems.find(w => String(w.id) === String(id))).filter(Boolean),
+            headLabel,
+            tailHtml: tail + actionHtml,
+            canvasExtraHtml: acts + shareBadge,
+          });
         }
         if (o.dPhoto && o.dView === 'photo' && !o.dirty) {
           // Her photograph of the look — the record, with the model a
@@ -10705,7 +10732,7 @@ button.rb-lk-live{cursor:pointer}
         const wornToday = (l.wears || []).some(w => String(w.worn_on).slice(0, 10) === today);
         const prov = !!l.name_provisional;
         const title = _lkTitleDraft != null ? _lkTitleDraft : l.name;
-        const pins = _lkPins(l.id).filter(d => d >= today);
+        const pins = _lkPins(l.id).filter(d => d >= today && !_lkStripHidden[l.id + '|' + d]);
         const items = _lkDetailItems(l);
         const ownedNone = !ids.length;
 
@@ -10738,7 +10765,8 @@ button.rb-lk-live{cursor:pointer}
               '<span class="note">' + (_lkDetailPhotoPending ? 'Uploading…' : 'Kept as the record of this look') + '</span></div>'
           : '';
         const panelTail = lkTagsRow + viewRow;
-        const lookPanel = _lkLookPanelHtml(l, { items, ids, props, dirty, dPhoto, dView, acts, tail: panelTail });
+        if (editing) _lkModelEnsure();
+        const lookPanel = _lkLookPanelHtml(l, { items, ids, props, dirty, editing, dPhoto, dView, acts, tail: panelTail });
 
         // The masthead: back to the door she came through (the chevron
         // names the previous step — Lookbook, the day, the travel edit,
@@ -10780,12 +10808,13 @@ button.rb-lk-live{cursor:pointer}
         }
         if (!editing && pins.length) {
           // A subtle reminder STRIP per pinned day, not a panel (C1) — the
-          // one line on this page that points OUT of it; the ✕ takes the
-          // pin back (Annie, 2026-09-08: the banner needs a way to cancel).
+          // one line on this page that points OUT of it; the ✕ closes the
+          // strip and NOTHING else (Annie, 2026-09-09: the pin stays — the
+          // day peek and Where it lives are where a pin comes off).
           h += pins.map(d =>
             '<div class="rb-lk-pinstrip"><span>Pinned for ' + _lkFmtLong(d) + '.</span><span class="acts">' +
             '<button type="button" onclick="window.__lkSeeDay(\'' + d + '\')">Open the day →</button>' +
-            '<button type="button" class="x" title="Unpin" aria-label="Unpin this day" onclick="window.__lkUnpinDay(\'' + d + '\')">×</button>' +
+            '<button type="button" class="x" title="Dismiss" aria-label="Dismiss this reminder" onclick="window.__lkStripHide(\'' + d + '\')">×</button>' +
             '</span></div>').join('');
         }
 
@@ -10813,7 +10842,7 @@ button.rb-lk-live{cursor:pointer}
             ? (dirty === 1 ? 'One change' : dirty + ' changes') + ' to this look.' + (n ? ' Its ' + _lkN(n, 'wear') + ' stay with it if you update.' : '')
             : 'No changes yet. Swap, add or take a piece out and this line tells you what happens to its wear.';
           h += '<div class="rb-lk-held rb-lk-editing"><div class="rb-lk-con"><div>' + lookPanel + '</div><div>' +
-            '<div class="rb-lk-sec rb-lk-rackhead"><span>The rack</span></div>' +
+            '<div class="rb-lk-sec rb-lk-rackhead"><span>The rack · ' + _lkN(ids.length, 'piece') + '</span></div>' +
             '<div class="rbc-rack">' + _rbRackRolesHtml(items, rackCfg, propEmpties) + '</div>' +
             '<button class="rbc-addpiece" onclick="window.__lkDAddOpen()"><span style="font-size:16px;line-height:1;margin-top:-1px">+</span> Add a piece</button>' +
             _lkLivesHtml(l) +
@@ -11110,7 +11139,14 @@ button.rb-lk-live{cursor:pointer}
         _avFetchId(function(id) {
           _lkModel = _lkModelFromId(id);
           // Deferred: a cached id answers synchronously, mid-paint.
-          setTimeout(function() { if (document.querySelector('.rb-lk-composer, .rb-lkm-stage')) _lkRepaint(); }, 0);
+          setTimeout(function() {
+            if (document.querySelector('.rb-lk-composer, .rb-lkm-stage, .rb-lk-editing')) _lkRepaint();
+            // A day editing its saved look dresses her model too.
+            try {
+              const d = window.__lastDlData;
+              if (d && d.look_id && dlResultPage && dlResultPage.style.display !== 'none') _dlRerender();
+            } catch (_) {}
+          }, 0);
         });
       }
       function _lkRepaint() {
@@ -11135,6 +11171,22 @@ button.rb-lk-live{cursor:pointer}
       // The SAME key _avRenderKick writes onto the saved look — so a look
       // rendered on the canvas saves with its frame and never renders twice.
       function _lkmKey(ids) { return (_lkModel ? _lkModel.id : '') + '|' + ids.map(String).sort().join(','); }
+      // A saved look's own photograph seeds the canvas cache, so editing it
+      // opens on the frame she already has and only a CHANGE asks for one.
+      function _lkmSeedFromLook(l) {
+        if (!l || !_lkModel) return;
+        const key = _lkmKey(_lkPieceIds(l));
+        const url = _pdHttp(l.render_url);
+        if (!url) {
+          // A render already on its way from the detail open (_avRenderKick)
+          // lands on the canvas too — the editor waits for it rather than
+          // asking for the same frame twice.
+          if (_avBusy[l.id] && _lkmRenders[key] === undefined) _lkmBusy = key;
+          return;
+        }
+        if (l.render_key === key && _lkmRenders[key] === undefined) _lkmRenders[key] = url;
+        if (!_lkmShown) _lkmShown = url;
+      }
       function _lkmGarments(items) {
         return items.map(wi => ({ name: wi.label, category: wi.category, color: wi.color, brand: wi.brand, image_url: _pdHttp(wi.image_url) }))
           .filter(g => g.name);
@@ -11852,8 +11904,13 @@ button.rb-lk-live{cursor:pointer}
           status: (l.wears || []).some(w => String(w.worn_on).slice(0, 10) === iso) ? 'worn' : 'planned',
         }]);
       };
-      // The ✕ on a pinned reminder strip — the pin comes off that day and
-      // the strip goes with it (_lkUnpin repaints the page).
+      // The ✕ on a pinned reminder strip closes the strip for this session
+      // and leaves the pin exactly where it is.
+      window.__lkStripHide = function(iso) {
+        if (!iso || !_lkActive) return;
+        _lkStripHidden[_lkActive + '|' + iso] = true;
+        _lkPaint();
+      };
       window.__lkUnpinDay = function(iso) {
         if (!iso || !_lkActive) return;
         _lkUnpin(_lkActive, iso);
@@ -12073,19 +12130,30 @@ button.rb-lk-live{cursor:pointer}
       };
       // "Update this look": the draft becomes the look. The wears keep
       // their own snapshots — history is never rewritten.
+      // The ONE way a saved look's composition changes in place — the look
+      // page's Update and the day's Update both land here. The wears stay
+      // with the look; her model re-wears it (the live canvas's frame is
+      // reused when it already rendered this exact composition).
+      function _lkCommitPieces(l, pieces) {
+        l.pieces = pieces.map((p, i) => ({ id: p.id, slot: p.slot || null, position: i, role: p.role || null }));
+        l.note = _lkStyleNote(l.pieces.map(p => p.id));
+        _lkCacheWrite();
+        _lkPatchCloud(l, { note: l.note });
+        _lkPiecesCloud(l);
+        const key = _lkModel ? _lkmKey(l.pieces.map(p => p.id)) : null;
+        const live = key && typeof _lkmRenders[key] === 'string' ? _lkmRenders[key] : null;
+        if (live) _lkPatch(l.id, { render_url: live, render_key: key });
+        else _avRenderKick(l);
+      }
       window.__lkResave = function() {
         const l = _lkFind(_lkActive);
         if (!l) return;
         // Nothing changed: "Update this look" simply closes the editor.
         if (!_lkDraft) { _lkEditMode = false; _lkPaint(); return; }
         const wearN = _lkWearCount(l);
-        l.pieces = _lkDraft.pieces.map((p, i) => ({ id: p.id, slot: p.slot || null, position: i, role: p.role || null }));
-        l.note = _lkStyleNote(l.pieces.map(p => p.id));
+        _lkCommitPieces(l, _lkDraft.pieces);
         _lkDraft = null;
         _lkEditMode = false;
-        _lkCacheWrite();
-        _lkPatchCloud(l, { note: l.note });
-        _lkPiecesCloud(l);
         // A toast, never a standing banner (Annie, 2026-09-08).
         _waShowToast('Updated');
         _rbTrack('look_updated', { wears: wearN });
@@ -13973,7 +14041,17 @@ button.rb-lk-live{cursor:pointer}
         const modal = document.createElement('div');
         modal.id = 'rb-del-modal';
         modal.style.cssText = 'position:fixed;inset:0;z-index:960;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:24px';
-        const dismiss = function() { modal.remove(); proceed(); };
+        // The quiet answer depends on the door: leaving discards the changes
+        // and goes; the wear and the banner simply close (the changes stand,
+        // the question returns). A day holds no changes of its own
+        // (Annie, 2026-09-09) — so there is no "keep it on the day".
+        const leaving = !!(opts && opts.keepAsk);
+        const quietLabel = leaving ? 'Discard the changes' : ((opts && opts.quiet) || 'Cancel');
+        const dismiss = function() {
+          modal.remove();
+          if (leaving) { window.__dlDayReset(); proceed(); }
+          else _dlAsked = false;
+        };
         modal.onclick = function(e) { if (e.target === modal) dismiss(); };
         modal.innerHTML =
           '<div style="background:#FAF8F5;border-radius:20px;width:100%;max-width:430px;box-sizing:border-box;box-shadow:0 24px 60px -12px rgba(32,32,33,0.28);padding:28px 26px">' +
@@ -13981,18 +14059,24 @@ button.rb-lk-live{cursor:pointer}
               _waEsc(_dlDayLabel()) + '</p>' +
             '<p style="font-family:\'Cormorant\',Georgia,serif;font-size:26px;font-weight:300;color:#202021;margin:0 0 18px;line-height:1.2">' +
               'You changed ' + (chg.n === 1 ? 'one piece' : chg.n + ' pieces') +
-              '. <span style="font-style:italic;color:#A89880">Save it as a new look?</span></p>' +
+              '. <span style="font-style:italic;color:#A89880">Update ' + _waEsc((base && base.name) || 'the look') + ', or save it as a new look?</span></p>' +
             '<p style="font-size:9px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#A89880;margin:0 0 8px">Name the new look</p>' +
             '<input id="rb-dlnew-name" value="' + _waEsc(suggested) + '" ' +
               'style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #DDD5C4;background:none;padding:0 0 8px;' +
               'font-family:\'Cormorant\',Georgia,serif;font-style:italic;font-weight:300;font-size:24px;color:#202021;outline:none">' +
             '<div style="display:flex;align-items:center;gap:20px;margin-top:22px;flex-wrap:wrap">' +
-              '<button id="rb-dlnew-yes" style="padding:15px 26px;border:none;border-radius:100px;background:#202021;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;color:#FAF8F5;font-family:inherit">Save as a new look</button>' +
-              '<button id="rb-dlnew-no" style="background:none;border:none;padding:0 0 2px;font-size:13px;color:#5F5A4E;border-bottom:1px solid #D8CFC0;cursor:pointer;font-family:inherit">Just keep it on the day</button>' +
+              '<button id="rb-dlnew-upd" style="padding:15px 26px;border:none;border-radius:100px;background:#202021;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;color:#FAF8F5;font-family:inherit">Update this look</button>' +
+              '<button id="rb-dlnew-yes" style="background:none;border:none;padding:0 0 2px;font-size:13px;color:#202021;border-bottom:1px solid #D8CFC0;cursor:pointer;font-family:inherit">Save as a new look</button>' +
+              '<button id="rb-dlnew-no" style="background:none;border:none;padding:0 0 2px;font-size:13px;color:#A89880;cursor:pointer;font-family:inherit">' + _waEsc(quietLabel) + '</button>' +
             '</div>' +
           '</div>';
         document.body.appendChild(modal);
         modal.querySelector('#rb-dlnew-no').onclick = dismiss;
+        modal.querySelector('#rb-dlnew-upd').onclick = function() {
+          modal.remove();
+          if (!window.__dlDayUpdate()) { _dlAsked = false; return; }
+          proceed();
+        };
         modal.querySelector('#rb-dlnew-yes').onclick = function() {
           const v = String((modal.querySelector('#rb-dlnew-name') || {}).value || '').trim();
           modal.remove();
@@ -14118,7 +14202,29 @@ button.rb-lk-live{cursor:pointer}
       window.__dlDayPromote = function() {
         if (!_dlDayBase) return;
         _dlAsked = false;
-        window._dlExitGuard(function() {});
+        window._dlExitGuard(function() {}, { quiet: 'Not now' });
+      };
+      // "Update this look" from a day — the change lands on the SAVED look
+      // (the one commit path the look page uses), its wears untouched, and
+      // the day reads settled again on the updated look.
+      window.__dlDayUpdate = function() {
+        const base = _dlDayBase && _lkFind(_dlDayBase.lookId);
+        if (!base) return false;
+        const flat = window.__dlCurrentItems || [];
+        if (flat.some(it => !it.wardrobe_match)) {
+          _waShowToast('Every piece needs to be yours to update the look — swap in one of yours');
+          return false;
+        }
+        const pieces = flat.map(it => ({ id: it.wardrobe_match.id, slot: null, role: _rbRoleNorm(it.role) || null }));
+        if (!pieces.length) return false;
+        _lkCommitPieces(base, pieces);
+        _dlDayBase = { lookId: String(base.id), ids: pieces.map(p => String(p.id)) };
+        _dlAsked = false;
+        _dlDayEdit = false;
+        _waShowToast('Updated');
+        _rbTrack('look_updated', { surface: 'day' });
+        _dlRerender();
+        return true;
       };
       // Rule 06 — the wear follows the look she named. The new look carries
       // the day's actual pieces, and records this day's wear against ITSELF;
@@ -14163,7 +14269,7 @@ button.rb-lk-live{cursor:pointer}
         // to the original look, recorded as worn) or save them as a new look
         // (the wear goes to that one). Either way the answer decides where
         // the wear belongs, so it has to come first.
-        if (window._dlExitGuard(function() { window.__dlWear(); })) return;
+        if (window._dlExitGuard(function() { window.__dlWear(); }, { quiet: 'Cancel' })) return;
         // Wearing a LOOSE, unkept look is the strongest keep there is (1a:
         // it exists nowhere until saved — and a wear needs a look to land
         // on, rule 03). Save it first; unowned pieces get their wishlist
@@ -14255,7 +14361,7 @@ button.rb-lk-live{cursor:pointer}
    local and naming the two ways out. */
 #dl-result-page .dlm-adjusted{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
   margin:12px 0 0;padding:14px 18px;background:#fff;border:0.5px solid var(--rule);border-radius:var(--rad-sm);font-size:12px;color:var(--ink-soft);line-height:1.6}
-#dl-result-page .dlm-adjusted em{font-family:var(--font-serif);font-style:italic;font-size:15px;color:var(--ink)}
+#dl-result-page .dlm-adjusted em,#dl-result-page .dlm-editbar em{font-family:var(--font-serif);font-style:italic;font-size:15px;color:var(--ink)}
 #dl-result-page .dlm-adjusted .acts{display:flex;align-items:center;gap:16px;flex:none}
 #dl-result-page .dlm-adjusted button{background:none;border:none;padding:0 0 2px;font-family:inherit;font-size:12px;
   color:var(--ink);border-bottom:0.5px solid var(--rule-mid);cursor:pointer}
@@ -14524,9 +14630,9 @@ button.rb-lk-live{cursor:pointer}
           const wasName = localRow && it.orig && it.orig.name && it.orig.name !== it.name
             ? String(it.orig.name).split(/\s+/).slice(-1)[0].toLowerCase() : '';
           const localHtml = localRow
-            ? `<div class="rbc-hownote dl-local"><span class="dl-todayonly">Today only</span>${wasName
+            ? `<div class="rbc-hownote dl-local"><span class="dl-todayonly">Changed</span>${wasName
                 ? `Swapped in for the ${_waEsc(wasName)} · <button onclick="window.__dlDayUndo(${fi})">undo</button>`
-                : `Added for this day · <button onclick="window.__dlDayUndo(${fi})">undo</button>`}</div>`
+                : `Added · <button onclick="window.__dlDayUndo(${fi})">undo</button>`}</div>`
             : '';
           return {
             idx: fi,
@@ -14565,19 +14671,37 @@ button.rb-lk-live{cursor:pointer}
             + `</div>`
           : '';
         const dlMomentLabel = dlLoose ? 'this look' : weekday + (dlEve ? ' evening' : '');
+        // A day wearing a saved look EDITS THAT LOOK (Annie, 2026-09-09): the
+        // tags are the look's, and her model wears the change live — the
+        // same canvas the look page's editor uses, seeded with the saved
+        // frame. An unowned piece on the rack (a flick to a suggestion)
+        // cannot be rendered on her, so the board carries that state.
+        let dlBoardHtml = '';
+        if (dayLook) {
+          _lkModelEnsure();
+          const dlOwnedIds = conItems.every(it => it.owned) ? conItems.map(it => it.pieceId).filter(v => v != null).map(String) : null;
+          if (_lkModel && dlOwnedIds && dlOwnedIds.length && dlOwnedIds.length <= 12) {
+            _lkEnsureCss();
+            _lkmSeedFromLook(dayLook);
+            dlBoardHtml = '<div class="rb-lkm-canvas">' + _lkmStageHtml(dlOwnedIds);
+            _lkmSync(dlOwnedIds);
+          }
+        }
         const con = _rbConsole({
           // This panel is the DAY's composition (D1 anatomy) — "The day",
           // marked Adjusted the moment it differs from the saved look. The
           // rack keeps the weekday; the Look detail keeps "The look".
-          headLabel: dlLoose ? `The look · ${total} pieces` : `The ${dlEve ? 'evening' : 'day'} · ${total} pieces`,
+          // The count lives on the rack alone (Annie, 2026-09-09).
+          headLabel: dlLoose ? 'The look' : `The ${dlEve ? 'evening' : 'day'}`,
           robesLabel: dayChg.n ? '<span style="color:#8C9A72">Adjusted</span>' : 'Robes',
           occHtml: dlOccHtml,
           quoteHtml: summaryHtml || (quote ? '“' + _waEsc(quote) + '”' : ''),
           fabricsHtml,
           paletteHtml: palette.map(h => `<span style="background:${h}"></span>`).join(''),
           addChipLabel: _rbTrackCfg('daily').console.addVerb,
-          tagsHtml: _rbTagsRowHtml(data.look_tags, '__dlTagsEdit'),
-          rackLabel: dlLoose ? 'The rack' : `The rack · ${_waEsc(dlMomentLabel)}`,
+          boardHtml: dlBoardHtml,
+          tagsHtml: dayLook ? _rbTagsRowHtml(_lkTagsOf(dayLook), '__dlLookTagsEdit') : _rbTagsRowHtml(data.look_tags, '__dlTagsEdit'),
+          rackLabel: `The rack · ${total} pieces`,
           headButtonsHtml: (data && data.worn)
             ? `<span class="rbc-hbtn" style="opacity:.55;pointer-events:none">Worn ✓</span><button class="rbc-hbtn" onclick="window.__dlRestyle()" title="A fresh look — anchored pieces stay">↻ ${dlLoose ? 'Restyle it' : 'Restyle this day'}</button>`
             // "Wore it" logs wears on OWNED pieces — with none in the look
@@ -14664,7 +14788,15 @@ button.rb-lk-live{cursor:pointer}
               ${data.look_id && typeof _lkFind === 'function' && _lkFind(data.look_id) ? `<div class="dlm-lksrc">Saved in your Lookbook — <button onclick="window.__lkFromDaily&&window.__lkFromDaily('${_waEsc(String(data.look_id))}')">Look details →</button></div>` : ''}
               ${kpSrc ? `<div class="dlm-lksrc">Built from <em>${_waEsc(kpSrc.title || 'your styled key piece')}</em> — <button onclick="window.__dlBackToKp()">Back to the three ways →</button></div>` : ''}
               ${dlNoLook ? `<div class="dlm-offer"><span>This day is dressed. Keep the look and it joins your Lookbook, where it starts counting its wears.</span><button onclick="window.__dlSaveAsk&&window.__dlSaveAsk()">Save to your Lookbook</button></div>` : ''}
-              ${dayChg.n ? `<div class="dlm-adjusted"><span>${dayChg.n === 1 ? 'One change' : dayChg.n + ' changes'} on this day only. <em>${_waEsc((dayLook && dayLook.name) || 'The saved look')}</em> in your Lookbook is unchanged.</span><span class="acts"><button class="q" onclick="window.__dlDayReset()">Reset to the saved look</button><button onclick="window.__dlDayPromote()">Save as a new look</button></span></div>` : ''}
+              ${dayChg.n ? (function() {
+                // The look page's own change bar (Annie, 2026-09-09: two
+                // answers that keep looks apart from diary days — Update
+                // the saved look, or Save as a new one; Discard is the way
+                // back). A day is only a date: it holds no changes of its own.
+                _lkEnsureCss();
+                const wn = dayLook ? _lkWearCount(dayLook) : 0;
+                return `<div class="rb-lk-editbar dlm-editbar"><span>${dayChg.n === 1 ? 'One change' : dayChg.n + ' changes'} to <em>${_waEsc((dayLook && dayLook.name) || 'the saved look')}</em>.${wn ? ' Its ' + _lkN(wn, 'wear') + ' stay with it if you update.' : ''}</span><span class="acts"><button class="q" onclick="window.__dlDayReset()">Discard</button><button onclick="window.__dlDayPromote()">Save as a new look</button><button class="p" onclick="window.__dlDayUpdate()">Update this look</button></span></div>`;
+              })() : ''}
             </header>
             ${data.fallback ? `<p style="font-size:12px;color:var(--ink-faint);font-style:italic;margin:12px 0 0">Robes couldn’t quite read your brief, so it’s dressed you for a lovely ordinary day instead.</p>` : ''}
             <div class="dlm-rule"></div>
