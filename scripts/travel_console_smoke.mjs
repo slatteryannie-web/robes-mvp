@@ -139,7 +139,8 @@ ok(await page.locator('#tv-mastmeta .tvm-fact.fc').count() === 0, 'the forecast 
 ok(await page.locator('#tv-stage .rbc-panel').count() === 0, 'nothing on the stage until something is tapped');
 // Audit 8.3 (2026-08-19): the empty stage no longer holds a dashed box —
 // the whole section stands down until a day or look is tapped.
-ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-sec-stage')).display === 'none'), 'the stage section is hidden while empty');
+ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-look-page')).display === 'none'), 'no look page until a look is tapped (the stage is gone)');
+ok(await page.locator('#tv-weekstrip .tvw-spark').count() === 0, 'no sparkle on the day rows');
 // Looks, not yet scheduled: only UNPINNED looks live in the grid
 ok(await page.locator('#tv-looksrow .tvm-lookcard').count() === 0, 'no unscheduled looks — the grid is empty while every look has its day');
 ok((await page.locator('#tv-looks-stat').innerText()) === '0 packed · 3 already in a day', 'the stat reads both halves');
@@ -169,8 +170,11 @@ await page.evaluate(() => window.__tvCapToggle());
 // ── 2. One stage: a pinned look card opens AS ITS DAY ──
 await page.evaluate(() => window.__tvSelectLook(0));
 await page.waitForTimeout(200);
-ok(await page.locator('#tv-stage .rbc-panel').count() === 1, 'the stage draws The Look panel');
-ok(await page.locator('#tv-stage .tv-daybox').count() === 1, 'the stage panel sits in its container');
+ok(await page.locator('#tv-look-page').isVisible(), 'a tapped look opens as its own page over the trip');
+ok((await page.locator('#tv-look-head .tvl-title').innerText()).includes('Coast after dark') && /Fri 31 Jul · Arrive/i.test(await page.locator('#tv-look-head .tvl-ey').innerText()), 'the look page is headed by the look, the day as its eyebrow');
+ok(/Travel edit/.test(await page.locator('#tv-look-head .tvm-back').innerText()), 'the look page carries the way back to the trip');
+ok(await page.locator('#tv-stage .rbc-panel').count() === 1, 'the look page draws The Look panel');
+ok(await page.locator('#tv-stage .tv-daybox').count() === 1, 'the panel sits in its container');
 ok(await page.locator('#tv-stage .rbc-row').count() === 3, 'stage rack has 3 rows');
 ok((await page.locator('#tv-stage .rbc-rackhead').innerText()).toLowerCase().includes('day 1'), 'a pinned look opens day-scoped — the rack carries its day');
 ok(await page.locator('#tv-stage .rbc-hbtn', { hasText: 'Unpin from this day' }).count() === 1, 'pinned: the rack header carries Unpin');
@@ -178,7 +182,7 @@ ok(await page.locator('#tv-weekstrip .tvw-card.sel').count() === 1, 'the rail ou
 ok(await page.locator('#tv-weekstrip .tvw-lk.on').count() === 1, 'the staged look row carries the highlight');
 await page.evaluate(() => window.__tvStageClose());
 await page.waitForTimeout(150);
-ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-sec-stage')).display === 'none'), 'Clear hides the stage section');
+ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-look-page')).display === 'none'), 'back closes the look page');
 ok(await page.locator('#tv-stage .rbc-hbtn', { hasText: 'Pin to days' }).count() === 0, 'no duplicated Pin-to-days CTA anywhere');
 
 // select the imported look → the SAME interactive console, pieces resolved
@@ -205,8 +209,7 @@ ok(await page.locator('#tv-stage .rbc-panel').count() === 1, 'day console draws 
 ok(await page.locator('#tv-stage .tv-daybox').count() === 1, 'day console sits in its container');
 const segTxt = await page.locator('#tv-stage').innerText();
 ok(!/EVENING/.test(segTxt), 'no Day / Evening switcher — moment labels are off');
-ok(/look 1 of 2/i.test(segTxt), 'two pinned looks walk as Look n of m');
-ok(/‹ Fri 31 Jul · Arrive · coastal walk/.test(await page.locator('#tv-stage .tv-stageback .bk').innerText()), 'the stage carries the day-page back line');
+ok(/look 1 of 2/i.test(await page.locator('#tv-look-head .tvl-walk').innerText()), 'two pinned looks walk as Look n of m in the head');
 ok(await page.locator('#tv-stage .rbc-hbtn', { hasText: 'Unpin from this day' }).count() === 1, 'day head has Unpin');
 await page.evaluate(() => window.__tvDaySetLook(1));
 await page.waitForTimeout(150);
@@ -262,12 +265,12 @@ ok(await page.locator('#tv-stage .rbc-row').count() === 4, 'Day 2 still wears it
 await page.evaluate(() => window.__tvUnpin(1, 0));
 await page.evaluate(() => window.__tvSelectLook(1));
 await page.waitForTimeout(150);
-ok(await page.locator('#tv-stage .tvm-pinbar').count() === 1, 'an unpinned look leads with the Pin-to-a-day bar');
-ok(await page.locator('#tv-looksrow .tvm-lookcard').count() === 1 && await page.locator('#tv-looksrow .tvm-lookcard.active').count() === 1, 'the unpinned look now stands in Looks, not yet scheduled — staged');
-ok(await page.locator('#tv-looksrow .tvm-lookcard .tvm-pinpill').count() === 1 && /Pin to a day/i.test(await page.locator('#tv-looksrow .tvm-pinpill').innerText()), 'its card carries the Pin to a day pill');
+ok(await page.locator('#tv-stage .tvm-pinbar').count() === 0 && await page.locator('#tv-look-page').isVisible(), 'an unpinned look opens its page — no pin bar');
+ok(/Not yet scheduled/i.test(await page.locator('#tv-look-head .tvl-ey').innerText()) && await page.locator('#tv-look-head .tvl-calbtn').count() === 1, 'the unscheduled look page carries the calendar icon');
+ok(await page.locator('#tv-looksrow .tvm-lookcard').count() === 1 && await page.locator('#tv-looksrow .tvm-lookcard.active').count() === 1, 'the unpinned look now stands in Looks, not yet scheduled — active');
+ok(await page.locator('#tv-looksrow .tvm-lookcard .tvm-calbtn').count() === 1 && await page.locator('#tv-looksrow .tvm-pinpill').count() === 0, 'its card carries the calendar icon, not a pill');
 ok((await page.locator('#tv-looks-stat').innerText()) === '1 packed · 2 already in a day', 'the stat follows the unpin');
-ok(/pin “tide-line morning” here/i.test(await page.locator('#tv-weekstrip .tvw-card').nth(2).locator('.tvw-add').innerText()), 'with an unpinned look on the stage, a day slot invites the pin');
-ok((await page.locator('#tv-stage .tvm-pinbar').innerText()).toLowerCase().includes('free'), 'the bar names the free days');
+ok(/add the first look/i.test(await page.locator('#tv-weekstrip .tvw-card').nth(2).locator('.tvw-add').innerText()), 'a day slot keeps its own copy while a look page is open');
 await page.evaluate(() => window.__tvLookConAddApply('w1'));
 await page.waitForTimeout(200);
 ok(await page.evaluate(() => window.__lastTvData.looks[1].formula.length) === 4, 'look-scope add grows the formula everywhere');
@@ -282,9 +285,8 @@ ok(Object.keys(remap).length === 1 && remap['1'] === 4, 'look-scope remove remap
 // ── 5. Free day invitation ──
 await page.evaluate(() => window.__tvSelectDay(3));
 await page.waitForTimeout(150);
-const freeTxt = await page.locator('#tv-stage').innerText();
-ok(/left free/.test(freeTxt), 'free day reads left free');
-ok(/style a look for this day/i.test(freeTxt), 'free day offers styling');
+ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-look-page')).display === 'none'), 'a free day has no look page — nothing opens');
+ok(await page.locator('#tv-weekstrip .tvw-card').nth(3).evaluate(e => e.classList.contains('sel')), 'the free day row carries the selection accent');
 
 // ── 6. Day-plan titles: name the day, then pin a look ──
 ok((await page.locator('#tv-weekstrip .tvw-card').nth(3).innerText()).includes('Name the day'), 'a bare day invites naming');
@@ -307,7 +309,7 @@ await page.evaluate(() => window.__tvDayPickApply(1, 3));
 await page.waitForTimeout(200);
 ok(await page.evaluate(() => window.__lastTvData.looks[1].pins.indexOf(3) !== -1), 'picking a trip look pins it to the day');
 ok(await page.locator('#tv-stage .rbc-panel').count() === 1, 'the day console opens on the freshly pinned day');
-ok(!/ of /i.test(await page.locator('#tv-stage .tv-stageback').innerText()), 'one pinned look — nothing to walk, no moment label');
+ok(await page.locator('#tv-look-head .tvl-walk').count() === 0, 'one pinned look — nothing to walk, no moment label');
 ok(/1 look filed/.test(await day3Card.innerText()) && /add a look/i.test(await day3Card.locator('.tvw-add').innerText()), 'the day row now counts one look and keeps its add slot');
 
 // ── 7. Edit details: dates clamp everything day-indexed ──
@@ -349,14 +351,26 @@ await page.waitForTimeout(150);
 ok(await page.locator('#tv-looksrow .tvm-lookcard').count() === 6, 'expanding shows every look');
 ok(/Show fewer/.test(await page.locator('#tv-looks-more').innerText()), 'the toggle offers the way back');
 
-// pin from the bar: the stage flips to the day it just dressed
-await page.evaluate(() => window.__tvSelectLook(3));
+// pin from the calendar: the sheet offers only the trip's dates, and the
+// look page lands on the day it just dressed
+await page.evaluate(() => window.__tvPinSheet(3));
 await page.waitForTimeout(200);
-ok(await page.locator('#tv-stage .tvm-pinbar .chip').count() === 2, 'the pin bar offers every trip day');
-await page.evaluate(() => window.__tvStagePin(1));
-await page.waitForTimeout(200);
-ok(await page.evaluate(() => window.__lastTvData.looks[3].pins.indexOf(1) !== -1), 'the bar pins the stage look to the day');
-ok(await page.locator('#tv-stage .rbc-hbtn', { hasText: 'Unpin from this day' }).count() === 1, 'the stage flips to the day view');
+ok(await page.locator('#rb-lkdy').count() === 1 && /Pin to a day/i.test(await page.locator('#rb-lkdy .who .ey').innerText()), 'the calendar icon opens the pin sheet');
+// the two-day trip straddles July / August: one live date per month, the
+// month nav walks between them and nowhere else
+ok(await page.locator('#rb-lkdy .c:not(.off):not(.blank)').count() === 1 && await page.locator('#rb-lkdy .mh button').count() === 1, 'only the trip’s dates are live in the sheet (one in July, a nav to August)');
+await page.evaluate(() => window.__tvPinSheetNav(1));
+await page.waitForTimeout(100);
+ok(await page.locator('#rb-lkdy .c:not(.off):not(.blank)').count() === 1 && await page.locator('#rb-lkdy .mh button').count() === 1, 'August holds the trip’s other date, with only the way back');
+ok(await page.locator('#rb-lkdy .c.off').count() > 20, 'the rest of the month is dimmed');
+await page.evaluate(() => window.__tvPinSheetPick('2026-08-01'));
+await page.waitForTimeout(100);
+ok(/Saturday 1 August/.test(await page.locator('#rb-lkdy .pick').innerText()) && /Pin to this day/i.test(await page.locator('#rb-lkdy .go').innerText()), 'the picked trip day prints in words above the pill');
+await page.evaluate(() => window.__tvPinSheetGo());
+await page.waitForTimeout(250);
+ok(await page.evaluate(() => window.__lastTvData.looks[3].pins.indexOf(1) !== -1), 'the sheet pins the look to the day');
+ok(await page.locator('#rb-lkdy').count() === 0, 'the sheet closes on the pin');
+ok(await page.locator('#tv-look-page').isVisible() && await page.locator('#tv-stage .rbc-hbtn', { hasText: 'Unpin from this day' }).count() === 1, 'the look page lands on the day it just dressed');
 
 // ── 8. Empty canvas trip ──
 await page.evaluate((fx) => window.__tvRenderResult(fx), EMPTY_TRIP);
@@ -406,16 +420,15 @@ ok(await mPage.evaluate(() => {
 ok(await mPage.evaluate(() => !document.getElementById('tv-capbody') || getComputedStyle(document.getElementById('tv-capbody')).display === 'none'), 'mobile capsule drawer starts folded');
 ok(await mPage.locator('#tv-weekstrip .tvw-lk').count() === 4, 'mobile diary lists every pinned look as a row');
 ok(await mPage.locator('#tv-looksrow .tvm-lookcard').count() === 0 && await mPage.locator('#tv-looks-more button').count() === 0, 'mobile: nothing unscheduled, no fold');
-ok(!(await mPage.locator('#tv-sec-stage').isVisible()), 'mobile: no inline stage section while nothing is open');
+ok(!(await mPage.locator('#tv-look-page').isVisible()), 'mobile: no look page while nothing is open');
 await mPage.evaluate(() => window.__tvSelectDay(0));
 await mPage.waitForTimeout(250);
-ok(await mPage.evaluate(() => getComputedStyle(document.getElementById('tv-stage')).position) === 'fixed', 'mobile stage rises as a sheet over the page');
-ok(await mPage.locator('#tv-stage-scrim').isVisible(), 'the scrim sits behind the sheet');
-ok(await mPage.locator('#tv-stage .tv-sheethead .x').isVisible(), 'the sheet carries its close button');
-ok(!(await mPage.locator('#tv-stage .tv-stageback .bk').isVisible()), 'the sheet head carries the way back — the desktop back line stands down');
+ok(await mPage.evaluate(() => getComputedStyle(document.getElementById('tv-look-page')).position) === 'fixed' && await mPage.locator('#tv-look-page').isVisible(), 'mobile: the look opens as a full page over the trip');
+ok(await mPage.locator('#tv-look-head .tvm-back').isVisible(), 'the page carries its way back');
+ok(await mPage.evaluate(() => { const p = document.getElementById('tv-look-page'); return p.scrollWidth <= p.clientWidth + 1; }), 'mobile look page: no horizontal overflow');
 await mPage.evaluate(() => window.__tvStageClose());
 await mPage.waitForTimeout(200);
-ok(!(await mPage.locator('#tv-sec-stage').isVisible()), 'closing the sheet returns her to the list');
+ok(!(await mPage.locator('#tv-look-page').isVisible()), 'closing the look page returns her to the list');
 await mCtx.close();
 
 console.log(`\n${pass} passed, ${fail} failed`);
