@@ -16075,6 +16075,12 @@ button.rb-lk-live{cursor:pointer}
 #tv-result-page .tvm-fact .fv.wx{flex:1;min-width:0;font-size:15px;line-height:1.3;color:var(--ink-soft)}
 #tv-result-page .tvm-fact .fv.wx em{font-style:italic}
 #tv-result-page .tvm-fact.fc .fl{flex:none;margin-left:auto}
+#tv-result-page .tvm-wxline{display:flex;align-items:flex-start;gap:9px;margin-top:12px;font-family:var(--font-serif);font-size:15px;line-height:1.35;color:var(--ink-soft)}
+#tv-result-page .tvm-wxline svg{flex:none;width:14px;height:14px;margin-top:3px;stroke:var(--ink-soft);fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+#tv-result-page .tvm-wxline .wx{min-width:0}
+#tv-result-page .tvm-wxline em{font-style:italic}
+#tv-result-page .tvm-wxline .sep{color:var(--ink-faint);margin:0 10px;opacity:.6}
+#tv-result-page .tvm-wxline .hint{font-style:italic;color:var(--ink)}
 #tv-result-page .tvm-tagrow{display:flex;align-items:center;gap:10px;margin-top:14px}
 #tv-result-page .tvm-tag{display:inline-flex;align-items:center;padding:8px 14px;border-radius:100px;background:var(--rose-bg);border:0.5px solid rgba(142,112,119,0.2);font-family:var(--font-serif);font-style:italic;font-size:14px;color:var(--rose);cursor:pointer}
 #tv-result-page .tvm-editbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:0.5px solid var(--rule-mid);border-radius:50%;background:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;transition:border-color .15s}
@@ -16099,14 +16105,22 @@ button.rb-lk-live{cursor:pointer}
 #tv-result-page .tvw-g .n{font-family:var(--font-serif);font-size:24px;font-weight:300;line-height:1.05;margin:3px 0;color:var(--ink)}
 #tv-result-page .tvw-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-right:22px}
 #tv-result-page .tvw-card .d{display:none}
-#tv-result-page .tvw-lk{display:flex;align-items:center;gap:12px;background:var(--cream-100);border:0.5px solid var(--rule);border-radius:4px;padding:8px 12px 8px 8px}
-#tv-result-page .tvw-lk .th{width:38px;height:48px;border-radius:2px;background:var(--cream-300);flex:none;overflow:hidden;display:block}
-#tv-result-page .tvw-lk .th img{width:100%;height:100%;object-fit:cover;display:block}
-#tv-result-page .tvw-lk .lb{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+#tv-result-page .tvw-head{display:flex;flex-direction:column;gap:4px;min-width:0}
+#tv-result-page .tvw-meta{font-size:11px;font-weight:300;color:var(--ink-faint)}
+#tv-result-page .tvw-lk{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;background:var(--cream-100);border:0.5px solid var(--rule);border-radius:4px;padding:8px 12px 8px 8px;cursor:pointer;text-align:left;font-family:inherit;color:var(--ink);transition:border-color .15s,background .15s}
+#tv-result-page .tvw-lk:hover{border-color:var(--rule-mid);background:#fff}
+#tv-result-page .tvw-lk.on{border-color:var(--ink);background:#fff}
+#tv-result-page .tvw-lk .th{position:relative;width:38px;height:48px;border-radius:2px;background:var(--cream-300);flex:none;overflow:hidden;display:block}
+#tv-result-page .tvw-lk .th img{width:100%;height:100%;object-fit:cover;object-position:50% 8%;display:block}
+#tv-result-page .tvw-lk .th .rb-lk-mos{position:absolute;inset:0;height:100%;aspect-ratio:auto;border-radius:0}
+#tv-result-page .tvw-lk .lb{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 #tv-result-page .tvw-lk .ln{font-family:var(--font-serif);font-size:16px;line-height:1.2;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#tv-result-page .tvw-lk .lm{display:flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
-#tv-result-page .tvw-lk .ck{width:15px;height:15px;border-radius:100px;background:var(--ink);display:inline-flex;align-items:center;justify-content:center;flex:none}
-#tv-result-page .tvw-lk .ck svg{width:8px;height:8px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#tv-result-page .tvw-lk .lm{font-size:11px;font-weight:300;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tv-result-page .tvw-lk .ar{flex:none;font-size:14px;color:var(--ink-faint);padding-right:2px}
+#tv-result-page .tvw-add{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;border:1px dashed var(--rule-mid);border-radius:4px;background:transparent;padding:9px 12px;font-size:9.5px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .15s,color .15s}
+#tv-result-page .tvw-add:hover{border-color:var(--ink);color:var(--ink)}
+#tv-result-page .tvw-add .plus{font-size:15px;font-weight:300;line-height:1;letter-spacing:0}
+#tv-result-page .tvw-add.tvw-pinstage{border-color:var(--rose);color:var(--rose);text-transform:none;letter-spacing:.02em;font-size:12px;font-family:var(--font-serif);font-style:italic}
 #tv-result-page .tvw-card .t{font-family:var(--font-serif);font-style:italic;font-size:16px;line-height:1.2;color:var(--ink)}
 #tv-result-page .tvw-card .t:hover{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
 #tv-result-page .tvw-spark{position:absolute;top:8px;right:8px;border:none;background:transparent;cursor:pointer;padding:4px;color:var(--ink);opacity:.5;display:flex;transition:opacity .15s}
@@ -16119,8 +16133,6 @@ button.rb-lk-live{cursor:pointer}
 #tv-result-page .tvw-look .sw{display:flex;gap:3px;align-items:center}
 #tv-result-page .tvw-look .sw span{width:15px;height:15px;border-radius:3px;border:0.5px solid rgba(32,32,33,0.08);box-sizing:border-box}
 #tv-result-page .tvw-look .sw .swplus{width:auto;height:auto;border:none;font-size:9.5px;color:var(--ink-faint);margin-left:2px;letter-spacing:.04em}
-#tv-result-page .tvw-pin{align-self:flex-start;font-size:9px;letter-spacing:.14em;text-transform:uppercase;border:1px dashed rgba(32,32,33,0.25);border-radius:100px;padding:5px 12px;color:var(--ink-soft);background:none;cursor:pointer;font-family:inherit}
-#tv-result-page .tvw-pin:hover{border-color:rgba(32,32,33,0.5)}
 #tv-result-page .tvw-hint{font-family:var(--font-serif);font-style:italic;font-size:12px;color:var(--ink-faint)}
 #tv-result-page .tv-con{display:grid;grid-template-columns:360px minmax(0,1fr);gap:34px;margin-top:18px;align-items:start}
 @media(max-width:900px){#tv-result-page .tv-con{grid-template-columns:1fr}}
@@ -16128,13 +16140,25 @@ button.rb-lk-live{cursor:pointer}
 #tv-result-page .tvm-crosscta:hover{opacity:.85}
 #tv-result-page .tvm-lookgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 @media(max-width:1199px){#tv-result-page .tvm-lookgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-#tv-result-page .tvm-lookcard{position:relative;text-align:left;border:0.5px solid var(--rule-mid);border-radius:var(--rad);background:#fff;padding:10px 10px 12px;display:flex;flex-direction:column;gap:7px;cursor:pointer;transition:border-color .2s,background .2s;font-family:inherit}
-#tv-result-page .tvm-lookcard:hover{border-color:rgba(32,32,33,0.28)}
-#tv-result-page .tvm-lookcard.active{border-color:var(--ink);background:var(--cream-100)}
-#tv-result-page .tvm-lookcard .locc{font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--rose)}
-#tv-result-page .tvm-lookcard .rb-lk-mos{aspect-ratio:3/4}
-#tv-result-page .tvm-lookcard .lpins{font-size:11px;color:var(--rose);letter-spacing:.02em;margin-top:auto}
-#tv-result-page .tvm-lookcard .lpins.free{color:var(--ink-faint);font-style:italic}
+#tv-result-page .tvm-lookcard{position:relative;text-align:left;border:1px solid var(--rule);border-radius:3px;background:#fff;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:border-color .2s;font-family:inherit}
+#tv-result-page .tvm-lookcard:hover{border-color:var(--rule-mid)}
+#tv-result-page .tvm-lookcard.active{border-color:var(--ink)}
+#tv-result-page .tvm-lookcard .limg{position:relative;display:block;aspect-ratio:3/4;background:var(--cream-100);border-bottom:0.5px solid var(--rule);overflow:hidden}
+#tv-result-page .tvm-lookcard .limg>img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 8%}
+#tv-result-page .tvm-lookcard .limg .rb-lk-mos{position:absolute;inset:0;height:100%;aspect-ratio:auto;border-radius:0}
+#tv-result-page .tvm-lookcard .lbody{display:flex;flex-direction:column;padding:14px 16px 16px;flex:1}
+#tv-result-page .tvm-lookcard .locc{font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint)}
+#tv-result-page .tvm-lookcard .lname{font-family:var(--font-serif);font-weight:400;font-size:20px;line-height:1.15;color:var(--ink);margin-top:6px;overflow-wrap:anywhere}
+#tv-result-page .tvm-lookcard .ln{font-size:12px;font-weight:300;color:var(--ink-soft);margin-top:5px}
+#tv-result-page .tvm-pinpill{align-self:flex-start;margin-top:14px;border:1px solid rgba(32,32,33,0.25);border-radius:100px;background:#fff;padding:7px 14px;font-size:9.5px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);cursor:pointer;font-family:inherit;transition:background .15s,color .15s}
+#tv-result-page .tvm-pinpill:hover{background:var(--ink);color:#fff}
+#tv-result-page .tvm-looksnone{font-family:var(--font-serif);font-style:italic;font-weight:300;font-size:15px;color:var(--ink-faint);padding:4px 2px 0}
+#tv-result-page .tv-stageback{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 0 2px}
+#tv-result-page .tv-stageback .bk{border:none;background:none;padding:0;cursor:pointer;font-family:inherit;font-size:11.5px;letter-spacing:.04em;color:var(--ink-soft)}
+#tv-result-page .tv-stageback .bk:hover{color:var(--ink)}
+#tv-result-page .tv-stageback .walk{display:inline-flex;align-items:center;gap:8px;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+#tv-result-page .tv-stageback .walk button{border:0.5px solid var(--rule-mid);background:#fff;border-radius:100px;width:24px;height:24px;line-height:1;cursor:pointer;font-family:inherit;font-size:13px;color:var(--ink-soft);padding:0}
+#tv-result-page .tv-stageback .walk button:hover{border-color:var(--ink);color:var(--ink)}
 #tv-result-page .tvm-lookmore{border:none;background:none;cursor:pointer;font-family:var(--font-serif);font-style:italic;font-size:14px;color:var(--ink-faint);padding:6px 14px}
 #tv-result-page .tvm-lookmore:hover{color:var(--ink)}
 #tv-result-page .tv-daybox{background:#fff;border:1px solid var(--ink);border-radius:14px;padding:6px 22px 20px;margin-top:2px}
@@ -16170,6 +16194,7 @@ button.rb-lk-live{cursor:pointer}
 #tv-result-page .tv-sheethead .ttl{font-family:var(--font-serif);font-weight:300;font-size:22px;line-height:1.1;color:var(--ink);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #tv-result-page .tv-sheethead .x{margin-left:auto;flex:none;width:30px;height:30px;border:1px solid var(--rule-mid);border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-soft);cursor:pointer}
 #tv-result-page #tv-sec-stage.on .tv-daybox{border:none;padding:0;margin-top:6px}
+#tv-result-page #tv-sec-stage.on .tv-stageback .bk{display:none}
 #tv-result-page .tvm-pinbar .chips{margin-left:0}
 }
 #tv-result-page .tvm-lbhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 10px}
@@ -16473,10 +16498,26 @@ body>*:not(#tv-result-page){display:none !important}
         window.__tvSelectDay(di);
         window.__tvSetTab('days');
       };
-      // A day holding several looks tabs them — the Day/Evening pattern
+      // A day holding several looks walks them — no moment labels (the
+      // Day/Evening pattern is retired with the Diary day's vocabulary)
       window.__tvDaySetLook = function(k) {
         _tvDayLookIdx = k;
+        _tvPaintWeek();
         _tvPaintDayConsole();
+      };
+      // A look row in the Travel diary opens THAT look's rack, day-scoped
+      window.__tvDayLookOpen = function(di, li) {
+        const data = window.__lastTvData || {};
+        _tvSelDayI = di;
+        _tvSelLookI = null;
+        _tvDayLookIdx = Math.max(0, (data.looks || []).map((o, oi) => ({ o, oi }))
+          .filter(x => (x.o.pins || []).indexOf(di) !== -1)
+          .findIndex(x => x.oi === li));
+        _tvStageRepaint();
+        if (!(window.matchMedia && matchMedia('(max-width:767px)').matches)) {
+          const sec = document.getElementById('tv-sec-stage');
+          if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       };
 
       // The saved look behind an imported trip look, and its photograph of
@@ -16529,10 +16570,21 @@ body>*:not(#tv-result-page){display:none !important}
         const data = window.__lastTvData;
         if (!el || !data) return;
         const mos = (window._rbLookTile && window._rbLookTile.mosaic) || _ltMosaicHtml;
+        const all = (data.looks || []).map((l, li) => ({ l, li }));
+        // "Looks, not yet scheduled" (Annie's wireframe, 2026-09-09): only
+        // the UNPINNED looks live here, as full cards of her model — a
+        // scheduled look is read on its day in the Travel diary. The stat
+        // reads both halves: "N packed · M already in a day".
+        const free = all.filter(x => !(x.l.pins || []).length);
+        const placed = all.length - free.length;
         const nEl = document.getElementById('tv-looks-n');
-        if (nEl) nEl.textContent = 'Looks' + ((data.looks || []).length ? ' · ' + data.looks.length : '');
+        if (nEl) nEl.textContent = 'Looks, not yet scheduled';
+        const statEl = document.getElementById('tv-looks-stat');
+        if (statEl) statEl.textContent = all.length
+          ? free.length + ' packed · ' + placed + ' already in a day'
+          : '';
         const emptyEl = document.getElementById('tv-looks-empty');
-        if (emptyEl) emptyEl.innerHTML = (data.looks || []).length ? '' : `
+        if (emptyEl) emptyEl.innerHTML = !all.length ? `
           <div class="tv-noprint" style="padding:28px 24px;background:#fff;border:0.5px solid var(--rule-mid);border-radius:var(--rad-lg);max-width:640px;margin-bottom:16px">
             <div style="font-family:${_tvSerif};font-size:22px;font-weight:300;font-style:italic;color:var(--ink);line-height:1.25;margin-bottom:8px">No looks yet.</div>
             <p style="font-size:12.5px;line-height:1.6;color:var(--ink-faint);margin:0 0 16px">Add a saved look from your lookbook — its pieces join the capsule — or let Robes style the whole trip around your plans.</p>
@@ -16540,36 +16592,36 @@ body>*:not(#tv-result-page){display:none !important}
               <button class="tvm-crosscta" onclick="window.__tvRobesStyleTrip()">✦ Robes styles the trip →</button>
               <button class="tvm-hbtn" onclick="window.__tvAddSavedLook()">Add a saved look</button>
             </div>
-          </div>`;
-        // Collapsed by default to ONE ROW of the grid (beta feedback
-        // 2026-08-10); a selected look past the fold auto-expands so the
-        // active card is never invisible. Adding lives only in the
-        // section header's "+ Look" — no trailing tile.
+          </div>`
+          : (!free.length ? `<div class="tvm-looksnone">Every look has its day.</div>` : '');
+        // Collapsed by default to ONE ROW (beta feedback 2026-08-10); a
+        // selected look past the fold auto-expands so the active card is
+        // never invisible. Adding lives only in the header's "+ Look".
         const cols = (window.matchMedia && matchMedia('(max-width:767px)').matches) ? 2
           : (window.matchMedia && matchMedia('(max-width:1199px)').matches) ? 3 : 4;
-        const looks = data.looks || [];
-        const staged = _tvStagedLookLi();
-        if (_tvSelLookI != null && _tvSelLookI >= cols) _tvLooksOpen = true;
-        const visible = _tvLooksOpen ? looks.length : Math.min(cols, looks.length);
-        const cards = looks.slice(0, visible).map((l, li) => {
-          const sel = staged === li;
-          const pins = (l.pins || []).slice().sort((a, b) => a - b);
-          const pinsLine = pins.length
-            ? pins.slice(0, 3).map(di => _tvDayShort(di)).join(' · ') + (pins.length > 3 ? ' +' + (pins.length - 3) : '')
-            : 'unpinned';
+        const selPos = _tvSelLookI != null ? free.findIndex(x => x.li === _tvSelLookI) : -1;
+        if (selPos >= cols) _tvLooksOpen = true;
+        const visible = _tvLooksOpen ? free.length : Math.min(cols, free.length);
+        const cards = free.slice(0, visible).map(x => {
+          const l = x.l, li = x.li;
+          const sel = _tvSelLookI === li;
           const pieceN = _tvLookEntries(li, null).length || (l.pieces || []).length;
           const eyebrow = l.occasion || (l.imported ? 'From your lookbook' : '');
+          const hero = _tvLookHero(li, null) || (l.img && _pdHttp(l.img)) || null;
           return `<div class="tvm-lookcard${sel ? ' active' : ''}" onclick="window.__tvLookTap(${li})" role="button" tabindex="0">
-            ${eyebrow || pieceN ? `<span class="locc">${_waEsc(eyebrow)}${eyebrow && pieceN ? ' · ' : ''}${pieceN ? pieceN + ' pieces' : ''}</span>` : ''}
-            ${mos(_tvLookCells(li), { photo: _tvLookHero(li, null) || l.img || undefined, alt: l.title || l.occasion || 'Look' })}
-            ${(window._rbLookTile && window._rbLookTile.title) ? window._rbLookTile.title(l.title || 'The look', 'lt') : `<div class="lt-title">${_waEsc(l.title || 'The look')}</div>`}
-            <span class="lpins${pins.length ? '' : ' free'}">${_waEsc(pinsLine)}</span>
+            <span class="limg">${hero ? `<img src="${_waEsc(hero)}" alt="${_waEsc(l.title || l.occasion || 'Look')}" onerror="this.remove()">` : mos(_tvLookCells(li), { alt: l.title || l.occasion || 'Look' })}</span>
+            <span class="lbody">
+              ${eyebrow ? `<span class="locc">${_waEsc(eyebrow)}</span>` : ''}
+              <span class="lname">${_waEsc(l.title || 'The look')}</span>
+              <span class="ln">${pieceN ? pieceN + ' piece' + (pieceN === 1 ? '' : 's') : 'a look'}</span>
+              <button type="button" class="tvm-pinpill tv-noprint" onclick="event.stopPropagation();window.__tvLookTap(${li})">Pin to a day</button>
+            </span>
           </div>`;
         }).join('');
         el.innerHTML = cards;
         const moreEl = document.getElementById('tv-looks-more');
-        if (moreEl) moreEl.innerHTML = looks.length > cols
-          ? `<button class="tvm-lookmore tv-noprint" onclick="window.__tvLooksToggle()">${_tvLooksOpen ? 'Show fewer ▴' : 'Show all ' + looks.length + ' looks ▾'}</button>`
+        if (moreEl) moreEl.innerHTML = free.length > cols
+          ? `<button class="tvm-lookmore tv-noprint" onclick="window.__tvLooksToggle()">${_tvLooksOpen ? 'Show fewer ▴' : 'Show all ' + free.length + ' looks ▾'}</button>`
           : '';
       }
       window.__tvLooksToggle = function() {
@@ -16590,82 +16642,58 @@ body>*:not(#tv-result-page){display:none !important}
         if (!el || !data) return;
         const nDays = data.tripDays || 7;
         const titles = data.dayTitles || {};
-        // An unpinned look on the stage turns every free day into a pin
-        // invitation (one-stage mock) — pin from the rail or the bar.
+        const mos = (window._rbLookTile && window._rbLookTile.mosaic) || _ltMosaicHtml;
+        // An unpinned look on the stage turns every day's add slot into a
+        // pin invitation (one-stage mock) — pin from the row or the bar.
         const stageLk = _tvSelLookI != null ? (data.looks || [])[_tvSelLookI] : null;
         const stageUnpinned = !!(stageLk && !(stageLk.pins || []).length);
+        const lookName = x => String((x.l.title || x.l.occasion || '')).replace(/\.\s*$/, '').trim();
         el.innerHTML = Array.from({ length: nDays }, (_, di) => {
           const title = typeof titles[di] === 'string' ? titles[di] : '';
           const editing = _tvEditingDayI === di;
           const pinned = (data.looks || []).map((l, li) => ({ l, li })).filter(x => (x.l.pins || []).indexOf(di) !== -1);
           const sel = _tvSelDayI === di;
-          const first = pinned[0];
-          let note = '';
-          if (first) {
-            const l = first.l;
-            const firstPin = Math.min.apply(null, (l.pins && l.pins.length ? l.pins : [di]));
-            const changes = ((l.overrides && l.overrides[di] && Object.keys(l.overrides[di]).length) || 0)
-              + ((l.dayAdds && l.dayAdds[di] && l.dayAdds[di].length) || 0)
-              + ((l.dayDrops && l.dayDrops[di] && l.dayDrops[di].length) || 0);
-            if (firstPin < di) note = 'worn again' + (changes ? ' · ' + changes + ' change' + (changes === 1 ? '' : 's') : '');
-          }
-          const sw = first ? _tvLookEntries(first.li, di).map(e => {
-            const wi = e.it.wardrobe_match && _waItems.find(w => String(w.id) === String(e.it.wardrobe_match.id));
-            return wi ? _ltToneOf(wi) : null;
-          }).filter(Boolean).slice(0, 3) : [];
-          // 2B "Quiet" (Annie 2026-08-14, production fix): the day's
-          // TITLE and the looks' NAMES are separate facts and the card
-          // renders the trio — title, then the look names as ONE serif
-          // phrase in the weight the occasion line used to hold ("Golden
-          // hour glow · Cozy and sophisticated"), both names, no labels.
-          // Occasions never render on the card (the "Sunset drinks" tag
-          // was the first look's occasion conflated with the day). HER
-          // typed plan is the title verbatim; an un-named dressed day
-          // titles as its day look's NAME, and that name never repeats
-          // in the phrase. Looks beyond the two named ride the swatch
-          // row as +N. The pencil stays retired.
-          const lookName = x => String((x.l.title || x.l.occasion || '')).replace(/\.\s*$/, '').trim();
-          const names = pinned.slice(0, 2).map(lookName).filter(Boolean);
-          const dispTitle = title || names[0] || '';
-          const phrase = _dcLookPhrase(dispTitle, names); // the ONE shared second-line rule
-
-          const plus = pinned.length > 2 ? `<span class="swplus">+${pinned.length - 2}</span>` : '';
           const titleHtml = editing
             ? `<input id="tv-daytitle-in" value="${_waEsc(title)}" placeholder="what’s happening?" maxlength="60"
                  onclick="event.stopPropagation()"
                  onkeydown="window.__tvDayTitleKey(event,${di})"
                  onblur="window.__tvDayTitleCommit(${di})">`
-            : (dispTitle
-              ? `<span class="t" title="Tap to rename" onclick="event.stopPropagation();window.__tvDayTitleEdit(${di})">${_waEsc(dispTitle)}</span>`
-              : `<span class="t-add" onclick="event.stopPropagation();window.__tvDayTitleEdit(${di})">add plans…</span>`);
-          // The Travel diary (Diary IA phase 4, 2026-09-08): a vertical
-          // list, one row per day — gutter (weekday / numeral / month),
-          // her title, then each pinned look as a row (thumb, name, N
-          // pieces; a re-wear notes itself) — the Diary's trip block and
-          // this list are one anatomy. The names phrase and swatches
-          // retire from this surface; the DayCard rail/month keep theirs.
-          const lookRow = x => {
+            : (title
+              ? `<span class="t" title="Tap to rename" onclick="event.stopPropagation();window.__tvDayTitleEdit(${di})">${_waEsc(title)}</span>`
+              : `<span class="t-add" onclick="event.stopPropagation();window.__tvDayTitleEdit(${di})">Name the day</span>`);
+          // The Travel diary in the Diary day's vocabulary (Annie's
+          // wireframe, 2026-09-09): one row per day — the date rail, the
+          // day's title + "N looks filed" / "nothing filed yet", every
+          // pinned look as a row (her model's thumbnail, the name, N
+          // pieces, an arrow) that opens THAT look's rack on the stage,
+          // and an "+ Add a look" slot on EVERY day ("+ Add the first
+          // look" while nothing is filed). No moment labels.
+          const meta = pinned.length
+            ? pinned.length + ' look' + (pinned.length === 1 ? '' : 's') + ' filed'
+            : 'nothing filed yet';
+          const lookRow = (x, k) => {
             const entries = _tvLookEntries(x.li, di);
             const first = entries[0] && entries[0].it;
             const hero = _tvLookHero(x.li, di)
               || (first && first.wardrobe_match && _pdHttp(first.wardrobe_match.image_url))
-              || (first && Number.isInteger(first.image_index) ? _pdHttp((data.generatedImages || [])[first.image_index]) : null);
+              || (first && Number.isInteger(first.image_index) ? _pdHttp((data.generatedImages || [])[first.image_index]) : null)
+              || (x.l.img && _pdHttp(x.l.img));
             const nP = entries.length || (x.l.pieces || []).length;
-            return `<span class="tvw-lk"><span class="th">${hero ? `<img src="${_waEsc(hero)}" alt="" onerror="this.remove()">` : ''}</span><span class="lb"><span class="ln">${_waEsc(lookName(x) || 'The look')}</span><span class="lm"><i class="ck"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg></i>${nP ? nP + ' piece' + (nP === 1 ? '' : 's') : 'a look'}</span></span></span>`;
+            const firstPin = Math.min.apply(null, (x.l.pins && x.l.pins.length ? x.l.pins : [di]));
+            const changes = ((x.l.overrides && x.l.overrides[di] && Object.keys(x.l.overrides[di]).length) || 0)
+              + ((x.l.dayAdds && x.l.dayAdds[di] && x.l.dayAdds[di].length) || 0)
+              + ((x.l.dayDrops && x.l.dayDrops[di] && x.l.dayDrops[di].length) || 0);
+            const again = firstPin < di ? ' · worn again' + (changes ? ', ' + changes + ' change' + (changes === 1 ? '' : 's') : '') : '';
+            const on = sel && _tvSelLookI == null && _tvDayLookIdx === k;
+            return `<button type="button" class="tvw-lk${on ? ' on' : ''}" onclick="event.stopPropagation();window.__tvDayLookOpen(${di},${x.li})">
+              <span class="th">${hero ? `<img src="${_waEsc(hero)}" alt="" onerror="this.remove()">` : mos(_tvLookCells(x.li), { alt: lookName(x) || 'Look' })}</span>
+              <span class="lb"><span class="ln">${_waEsc(lookName(x) || 'The look')}</span><span class="lm">${nP ? nP + ' piece' + (nP === 1 ? '' : 's') : 'a look'}${_waEsc(again)}</span></span>
+              <span class="ar" aria-hidden="true">→</span>
+            </button>`;
           };
-          const lookHtml = pinned.length
-            ? `<span class="tvw-look">
-                ${note ? `<span class="note">${_waEsc(note)}</span>` : ''}
-                ${pinned.map(lookRow).join('')}
-              </span>`
-            : (stageUnpinned
-              ? `<button class="tvw-pinstage tv-noprint" onclick="event.stopPropagation();window.__tvStagePin(${di})">pin ${_waEsc(String(stageLk.title || stageLk.occasion || 'it').toLowerCase())} here</button>`
-              : title
-                ? `<button class="tvw-pin tv-noprint" onclick="event.stopPropagation();window.__tvDayPick(${di})">+ Look</button>`
-                : `<span class="tvw-hint">name the day and add a look</span>`);
-          // The sparkle (v3 §D — the strip gains it): restyling a dressed
-          // day and dressing an undressed one open the SAME surface, the
-          // __tvDayPick sheet — one destination, double duty.
+          const addHtml = stageUnpinned
+            ? `<button type="button" class="tvw-add tvw-pin tvw-pinstage tv-noprint" onclick="event.stopPropagation();window.__tvStagePin(${di})"><span class="plus">+</span> Pin “${_waEsc(lookName({ l: stageLk }) || 'the look')}” here</button>`
+            : `<button type="button" class="tvw-add tvw-pin tv-noprint" onclick="event.stopPropagation();window.__tvDayPick(${di})"><span class="plus">+</span> ${pinned.length ? 'Add a look' : 'Add the first look'}</button>`;
           const spark = pinned.length
             ? `<button class="tvw-spark tv-noprint" title="Restyle this day" aria-label="Restyle this day" onclick="event.stopPropagation();window.__tvDayPick(${di})">${_DC_RING_SVG}</button>`
             : '';
@@ -16676,8 +16704,9 @@ body>*:not(#tv-result-page){display:none !important}
             : `<span class="tvw-g"><span class="wd">Day</span><span class="n">${di + 1}</span></span>`;
           return `<div class="tvw-card${(title || pinned.length) ? '' : ' bare'}${sel ? ' sel' : ''}" onclick="window.__tvDayTap(${di})" role="button" tabindex="0">
             ${spark}${gutter}<span class="tvw-b"><span class="d">${_waEsc(_tvDayShort(di, true))}</span>
-            ${titleHtml}
-            ${lookHtml}</span>
+            <span class="tvw-head">${titleHtml}<span class="tvw-meta">${_waEsc(meta)}</span></span>
+            ${pinned.length ? `<span class="tvw-look">${pinned.map(lookRow).join('')}</span>` : ''}
+            ${addHtml}</span>
           </div>`;
         }).join('');
         if (_tvEditingDayI != null) {
@@ -17057,24 +17086,21 @@ body>*:not(#tv-result-page){display:none !important}
           return `
             <div style="background:#fff;border:0.5px dashed rgba(32,32,33,0.2);border-radius:16px;padding:44px 24px;text-align:center">
               <div style="font-family:${_tvSerif};font-size:26px;font-weight:300;color:#202021;margin-bottom:6px">${_waEsc(info.dow)}${info.date ? ` · ${_waEsc(info.date)}` : ''}, <em style="font-style:italic">left free.</em></div>
-              <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px">Nothing pinned — pin a look from the grid, or style one for this day.</div>
+              <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:18px">Nothing filed yet — add a look from its row in the diary, or style one for this day.</div>
               <button onclick="window.__tvStyleLooks({pinTo:${di}})" style="background:#202021;color:#fff;border:none;border-radius:100px;padding:12px 22px;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">✦ Style a look for this day →</button>
               <button onclick="window.__tvSetTab('looks')" style="display:block;margin:12px auto 0;background:none;border:none;padding:0;cursor:pointer;font-size:11px;color:var(--ink-faint);text-decoration:underline;text-underline-offset:3px;font-family:inherit">See the looks</button>
             </div>`;
         }
-        // The Day / Evening switcher (hifi 2026-08-10): the first pinned
-        // look is the DAY, the second the EVENING; one pinned look shows
-        // "Evening · free" — tapping it opens the add-a-look sheet, so
-        // dressing the evening is always one tap from the stage.
-        const segBtn = (label, k, on) =>
-          `<button onclick="window.__tvDaySetLook(${k})" style="border:none;border-radius:100px;padding:5px 13px;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;background:${on ? '#202021' : 'transparent'};color:${on ? '#fff' : '#8A8078'};white-space:nowrap">${label}</button>`;
-        const segLabel = (x, k) => k === 0 ? 'Day' : (k === 1 ? 'Evening' : String(x.l.occasion || 'Look ' + (k + 1)).slice(0, 22));
-        const seg = `<div style="display:inline-flex;width:max-content;max-width:100%;overflow-x:auto;gap:2px;background:#F5F0E8;border:0.5px solid rgba(32,32,33,0.1);border-radius:100px;padding:2px;margin:2px 0 4px;align-self:flex-start">`
-          + pinned.map((x, k) => segBtn(_waEsc(segLabel(x, k)), k, k === _tvDayLookIdx)).join('')
-          + (pinned.length === 1
-            ? `<button onclick="window.__tvDayEveAdd(${di})" style="border:none;border-radius:100px;padding:5px 13px;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;background:transparent;color:#A89880;white-space:nowrap">Evening · free</button>`
-            : '')
-          + `</div>`;
+        // No Day / Evening switcher (Annie, 2026-09-09 — the Diary day's
+        // vocabulary): the stage carries the day page's back line — "‹ Thu
+        // 4 Sep · the day's title" back to the diary row — and, when the
+        // day holds several looks, "Look n of m" with ‹ › to walk them.
+        const dayTitle = (data.dayTitles || {})[di] || '';
+        const k = _tvDayLookIdx, m = pinned.length;
+        const seg = `<div class="tv-stageback tv-noprint">
+            <button type="button" class="bk" onclick="window.__tvStageClose()">‹ ${_waEsc((info.date || info.dow).replace(/,/g, ''))}${dayTitle ? ' · ' + _waEsc(dayTitle) : ''}</button>
+            ${m > 1 ? `<span class="walk"><button type="button" onclick="window.__tvDaySetLook(${(k + m - 1) % m})" aria-label="Previous look">‹</button><span>Look ${k + 1} of ${m}</span><button type="button" onclick="window.__tvDaySetLook(${(k + 1) % m})" aria-label="Next look">›</button></span>` : ''}
+          </div>`;
         const x = pinned[_tvDayLookIdx];
         return `<div class="tv-daybox">` + _tvConsoleFor(x.li, di, { occHtml: seg, onFlip: '__tvDayConFlip', onSwap: '__tvDayConSwap', onRemove: '__tvDayConRemove', addPieceFn: '__tvDayConAdd' }) + `</div>`;
       }
@@ -17138,7 +17164,7 @@ body>*:not(#tv-result-page){display:none !important}
           const lk = _tvSelLookI != null ? data.looks[_tvSelLookI] : null;
           weekHint.textContent = lk && !(lk.pins || []).length
             ? 'tap a day to pin “' + (lk.title || lk.occasion || 'the look') + '” there'
-            : 'name the day, then pin a look';
+            : _tvWeekHintText();
         }
         if (!open) {
           el.innerHTML = `
@@ -17412,6 +17438,25 @@ body>*:not(#tv-result-page){display:none !important}
       // is read-only — then the vibe pill. Weather still fills in late
       // through _tvPaintMastMeta (the forecast row reads "Reading the
       // forecast…" until it lands, and says so honestly when it can't).
+      // What the forecast means for the case — one plain phrase after the
+      // weather line. Reads the high of the range and whether it rains.
+      function _tvLayerHint(wx) {
+        const nums = String((wx && wx.tempRange) || '').match(/-?\d+/g);
+        if (!nums || !nums.length) return '';
+        const hi = Math.max.apply(null, nums.map(Number));
+        const wet = /rain|shower|drizzle|storm|wet/i.test(String((wx && wx.condition) || ''));
+        if (hi < 10) return 'A coat, and layers beneath it';
+        if (hi < 15) return wet ? 'A warm layer and a shell' : 'A warm layer, every day';
+        if (hi < 20) return wet ? 'A shell and one warm layer' : 'One warm layer for the evenings';
+        if (hi < 26) return wet ? 'Light layers and a shell' : 'Light layers, bare arms by noon';
+        return 'Bare arms, one layer for the evening';
+      }
+      const _TV_NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen'];
+      function _tvNumWord(n) { return _TV_NUM_WORDS[n] || String(n); }
+      function _tvWeekHintText() {
+        const n = Number((window.__lastTvData || {}).tripDays) || 0;
+        return n ? _tvNumWord(n) + (n === 1 ? ' day' : ' days') + ', dressed in advance' : 'dressed in advance';
+      }
       function _tvMastMetaHtml(data) {
         const wx = data.weather || null;
         const place = (wx && wx.city) ? wx.city + (wx.country ? ', ' + wx.country : '') : (data.destination || 'Somewhere lovely');
@@ -17424,15 +17469,21 @@ body>*:not(#tv-result-page){display:none !important}
           chev: '<svg viewBox="0 0 12 12"><path d="M4.8 2.6L8.2 6l-3.4 3.4"/></svg>',
         };
         const fact = (icon, label, value, extra) => `<button type="button" class="tvm-fact tv-noprint" onclick="window.__tvEditDetails()">${icon}<span class="fb"><span class="fl">${label}</span><span class="fv">${value}${extra ? `<span class="fs"> · ${_waEsc(extra)}</span>` : ''}</span></span>${ico.chev}</button>`;
+        // The weather LINE (Annie's travel wireframe, 2026-09-09 — the
+        // Diary day's vocabulary): "11° – 17° · passing showers | A shell
+        // and one warm layer" — the forecast, then what it means for the
+        // case. Reads "Reading the forecast…" until it lands.
+        const hint = wx ? _tvLayerHint(wx) : '';
         const wxLine = wx
           ? [wx.tempRange ? _waEsc(wx.tempRange) : '', wx.condition ? `<em>${_waEsc(wx.condition)}${wx.seasonal ? ' · seasonal read' : ''}</em>` : ''].filter(Boolean).join(' · ')
+            + (hint ? `<span class="sep">|</span><span class="hint">${_waEsc(hint)}</span>` : '')
           : (data.dateFrom ? 'Reading the forecast…' : '');
         return `
           <div class="tvm-facts">
             ${fact(ico.pin, 'Destination', _waEsc(place))}
             ${fact(ico.cal, 'Dates', _waEsc(range || 'Add the dates'), n ? n + ' day' + (n === 1 ? '' : 's') : '')}
-            ${wxLine ? `<div class="tvm-fact fc">${ico.wx}<span class="fv wx">${wxLine}</span><span class="fl">Forecast</span></div>` : ''}
           </div>
+          ${wxLine ? `<div class="tvm-wxline">${ico.wx}<span class="wx">${wxLine}</span></div>` : ''}
           ${data.vibe
             ? `<div class="tvm-tagrow"><button class="tvm-tag tv-noprint" onclick="window.__tvEditDetails()" title="Edit the vibe">${_waEsc(data.vibe)}</button></div>`
             : (data.location_vibe ? `<div class="tvm-tagrow"><div class="tvm-tag">${_waEsc(data.location_vibe)}</div></div>` : '')}`;
@@ -17588,7 +17639,7 @@ body>*:not(#tv-result-page){display:none !important}
             <section class="tvm-sec" id="tv-sec-week">
               <div class="tvm-sechead">
                 <span class="tvm-seclab">Travel diary</span>
-                <span class="tvm-sechint" id="tv-week-hint">name the day, then pin a look</span>
+                <span class="tvm-sechint" id="tv-week-hint">${_waEsc(_tvWeekHintText())}</span>
               </div>
               <div class="tvw-grid" id="tv-weekstrip"></div>
             </section>
@@ -17605,8 +17656,8 @@ body>*:not(#tv-result-page){display:none !important}
 
             <section class="tvm-sec" id="tv-sec-looks">
               <div class="tvm-sechead">
-                <span class="tvm-seclab" id="tv-looks-n">Looks${lookCount ? ' · ' + lookCount : ''}</span>
-                <span class="tvm-sechint">tap any look to bring it onto the stage</span>
+                <span class="tvm-seclab" id="tv-looks-n">Looks, not yet scheduled</span>
+                <span class="tvm-sechint" id="tv-looks-stat"></span>
                 <span class="tvm-secact tv-noprint">
                   <button class="tvm-addbtn" onclick="window.__tvLookMenu()">+ Look</button>
                 </span>
