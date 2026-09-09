@@ -9863,6 +9863,7 @@ button.rb-lk-live{cursor:pointer}
 .rb-lk-pinstrip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:18px;background:var(--secondary,#E3E1CC);border-radius:8px;padding:10px 16px;font-size:12px;color:#4F4B3C}
 .rb-lk-pinstrip button{background:none;border:none;padding:0 0 1px;font-family:inherit;font-size:12px;color:var(--ink);border-bottom:1px solid rgba(32,32,33,0.25);cursor:pointer;white-space:nowrap;flex:none}
 .rb-lk-pinstrip .acts{display:inline-flex;align-items:center;gap:14px;flex:none}
+.rb-lk-packbtn{margin-left:10px}
 .rb-lk-pinstrip button.x{border-bottom:none;font-size:17px;line-height:1;padding:0 2px;color:#4F4B3C;opacity:.7}
 .rb-lk-pinstrip button.x:hover{opacity:1}
 .rb-lk-pinstrip+.rb-lk-pinstrip{margin-top:8px}
@@ -10649,6 +10650,11 @@ button.rb-lk-live{cursor:pointer}
       var _LK_ARROW = '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true"><path d="M2 6h8M7 3l3 3-3 3"></path></svg>';
       // The door she came through — {label, go}. Null = the Lookbook grid.
       var _lkFrom = null;
+      // The trip a saved look was opened FROM (Annie, 2026-09-09: an imported
+      // look on a trip is the SAME look — its own page, no changes aside from
+      // being pinned to a day, whose pieces can then be packed). {li, di}
+      // against window.__lastTvData while the trip's data is still live.
+      var _lkTrip = null;
       // The controls that sit ON the image: the diary bottom-left, the
       // camera bottom-right. The camera names itself on hover ("Add your
       // photograph"; o.label prints it always — the composer's pill); once
@@ -10902,6 +10908,25 @@ button.rb-lk-live{cursor:pointer}
             '<button type="button" class="x" title="Dismiss" aria-label="Dismiss this reminder" onclick="window.__lkStripHide(\'' + d + '\')">×</button>' +
             '</span></div>').join('');
         }
+        // Opened from a trip: the same strip names the trip's day (or that
+        // the look is packed but not yet on a day) — the one line that
+        // points back out to the travel edit.
+        const trip = editing ? null : _lkTripCtx(l);
+        if (trip) {
+          const dest = trip.data.destination || 'the trip';
+          const dayTitle = trip.di != null ? ((trip.data.dayTitles || {})[trip.di] || '') : '';
+          const iso = trip.di != null && trip.data.dateFrom ? _pdAddISO(trip.data.dateFrom, trip.di) : null;
+          const when = trip.di != null ? (iso ? _lkFmtLong(iso) : 'Day ' + (trip.di + 1)) : '';
+          h += '<div class="rb-lk-pinstrip rb-lk-tripstrip"><span>' +
+            (trip.di != null
+              ? 'Pinned for ' + _waEsc(when) + (dayTitle ? ' · ' + _waEsc(dayTitle) : '') + ', on the trip to ' + _waEsc(dest) + '.'
+              : 'Packed for ' + _waEsc(dest) + ' — not yet on a day.') +
+            '</span><span class="acts">' +
+            (trip.di != null
+              ? '<button type="button" onclick="window.__lkBackDoor()">Open the travel edit →</button>'
+              : '<button type="button" onclick="window.__tvPinSheet(' + trip.li + ')">Pin to a day →</button>') +
+            '</span></div>';
+        }
 
         // The Rack — the same rack rows every console uses. A saved build's
         // proposals hang as full rack cards (the shared _rbcRow). Only with
@@ -10955,11 +10980,20 @@ button.rb-lk-live{cursor:pointer}
         // The rack READS: each row carries the piece's own wear count where
         // the flick cluster and Swap sit once she asks to edit. The wear
         // count is INFORMATION, not an action — its own class.
-        const rackItems = items.map(it => Object.assign({}, it, {
-          count: { cur: 0, len: 1 },
-          thirdHtml: it.owned ? '<span class="rbc-wears">' + _lkN(it.wearCount || 0, 'wear') + '</span>' : '',
-        }));
+        // From a trip, every owned row also carries the case's Pack toggle
+        // (the trip's own write path) — the pieces of a pinned look are
+        // what she packs.
+        const rackItems = items.map(it => {
+          const ci = (trip && it.owned) ? _lkTripCi(trip.data, it.pieceId) : -1;
+          const cap = ci >= 0 ? trip.data.capsule[ci] : null;
+          return Object.assign({}, it, {
+            count: { cur: 0, len: 1 },
+            thirdHtml: (it.owned ? '<span class="rbc-wears">' + _lkN(it.wearCount || 0, 'wear') + '</span>' : '') +
+              (cap ? '<button type="button" class="rbc-act rb-lk-packbtn' + (cap.packed ? ' on' : '') + '" onclick="window.__lkTripPack(' + ci + ')">' + (cap.packed ? _rbcCheckSvg + ' Packed' : 'Pack') + '</button>' : ''),
+          });
+        });
         h += '<div class="rb-lk-sec rb-lk-rackhead"><span>The rack · ' + _lkN(ids.length, 'piece') + '</span><span style="flex:1"></span>' +
+          (trip && !rackEmpty ? '<button type="button" class="rb-lk-sort rb-lk-editbtn rb-lk-packall" onclick="window.__lkTripPackAll()">Pack this look</button>' : '') +
           (rackEmpty ? '' :
             '<button type="button" class="rb-lk-sort rb-lk-editbtn" onclick="window.__lkEditToggle()">Edit &amp; resave</button>') +
           '</div>' +
@@ -11769,6 +11803,46 @@ button.rb-lk-live{cursor:pointer}
         if (window.__rbCloseResultOverlays) window.__rbCloseResultOverlays();
         window.__lkOpen(id, savedId ? { from: { label: 'Travel edit', go: function() { window.__snOpenItem && window.__snOpenItem(savedId); } } } : null);
       };
+      // A look row on a trip that carries a SAVED look opens the look's own
+      // page (Annie, 2026-09-09) — back reads "Travel edit", the trip's pin
+      // strip and the pack toggles are the only additions. Returns false
+      // when the saved look no longer resolves (the trip's own look page
+      // then serves).
+      window.__lkFromTripLook = function(li, di) {
+        const data = window.__lastTvData;
+        const l = data && data.looks && data.looks[li];
+        if (!l || !l.imported || !l.lookId || !_lkFind(l.lookId)) return false;
+        const savedId = _tvActiveSaveId;
+        _tvSelDayI = null; _tvSelLookI = null; _tvDayLookIdx = 0;
+        if (window.__rbCloseResultOverlays) window.__rbCloseResultOverlays();
+        window.__lkOpen(l.lookId, {
+          from: savedId ? { label: 'Travel edit', go: function() { window.__snOpenItem && window.__snOpenItem(savedId); } } : { label: 'Travel edit', go: function() { window.__rbDiaryOpen && window.__rbDiaryOpen(); } },
+          trip: { li: li, di: di == null ? null : di },
+        });
+        return true;
+      };
+      function _lkTripCtx(l) {
+        const data = window.__lastTvData;
+        if (!_lkTrip || !data || !l) return null;
+        const tl = (data.looks || [])[_lkTrip.li];
+        if (!tl || String(tl.lookId) !== String(l.id)) return null;
+        return { data, l: tl, li: _lkTrip.li, di: _lkTrip.di };
+      }
+      function _lkTripCi(data, pieceId) {
+        return (data.capsule || []).findIndex(c => c.wardrobe_match && String(c.wardrobe_match.id) === String(pieceId));
+      }
+      // Pack from the look page — the trip's own write paths, then a repaint
+      window.__lkTripPack = function(ci) {
+        if (!_lkTripCtx(_lkFind(_lkActive))) return;
+        window.__tvPackToggle(ci);
+        _lkPaint();
+      };
+      window.__lkTripPackAll = function() {
+        const t = _lkTripCtx(_lkFind(_lkActive));
+        if (!t) return;
+        window.__tvPackLook(t.li, t.di);
+        _lkPaint();
+      };
       // Back climbs to the door she came through; with none recorded, the
       // Lookbook grid.
       window.__lkBackDoor = function() {
@@ -11779,6 +11853,7 @@ button.rb-lk-live{cursor:pointer}
       };
       window.__lkOpen = function(id, opts) {
         _lkFrom = (opts && opts.from && opts.from.label) ? opts.from : null;
+        _lkTrip = (opts && opts.trip && opts.trip.li != null) ? opts.trip : null;
         _lkDetailView = null; _lkDetailPhotoPending = false;
         _lkShelfOpen();
         _lkActive = id; _lkView = 'detail';
@@ -16413,6 +16488,7 @@ body>*:not(#tv-result-page){display:none !important}
         _tvStageRepaint();
       };
       window.__tvLookTap = function(li) {
+        if (window.__lkFromTripLook && window.__lkFromTripLook(li, null)) return;
         window.__tvSelectLook(li);
       };
       window.__tvSelectDay = function(di) {
@@ -16571,6 +16647,7 @@ body>*:not(#tv-result-page){display:none !important}
       };
       // A look row in the Travel diary opens THAT look's rack, day-scoped
       window.__tvDayLookOpen = function(di, li) {
+        if (window.__lkFromTripLook && window.__lkFromTripLook(li, di)) return;
         const data = window.__lastTvData || {};
         _tvSelDayI = di;
         _tvSelLookI = null;

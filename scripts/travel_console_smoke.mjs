@@ -46,6 +46,17 @@ const WARDROBE = [
   { id: 'w5', label: 'Tan leather slides', category: 'Shoes', color: 'Camel' },
 ].map((p, i) => ({ ...p, user_id: 'u-test', brand: 'Studio', notes: '', image_url: null, times_worn: 0, item_dna: {}, hero_position: null, seasons: null, occasions: null, created_at: new Date(Date.now() - i * 1000).toISOString() }));
 
+// The saved look behind the trip's imported look (lk-9) — the trip's row
+// opens the look's OWN page (Annie, 2026-09-09).
+const TRIP_LOOKS = [
+  { id: 'lk-9', user_id: 'u-test', name: 'The Thursday one', name_provisional: false, note: 'Cream silk shirt with the barrel-leg jeans, gold hoops.',
+    photo_url: null, source: 'build', origin_look_id: null, created_at: '2026-07-20T10:00:00Z', updated_at: '2026-07-20T10:00:00Z' },
+];
+const TRIP_LOOK_PIECES = [
+  { look_id: 'lk-9', wardrobe_item_id: 'w1', slot: 'Top', position: 0 },
+  { look_id: 'lk-9', wardrobe_item_id: 'w3', slot: 'Bottom', position: 1 },
+];
+
 const FIXTURE = {
   trip_label: 'LAHINCH · JULY', headline: 'A long weekend in Lahinch', location_vibe: 'Wild Atlantic ease',
   stylist_summary: 'A tight case for the coast.', suitcase_note: '', palette: ['#8A8078', '#C9BCA6'],
@@ -102,6 +113,8 @@ await page.route('**ayowpaknssulsqqvwpqx.supabase.co/**', (r) => {
   if (m !== 'GET') return r.fulfill({ status: 201, contentType: 'application/json', body: '[]' });
   let body = '[]';
   if (u.includes('wardrobe_items')) body = JSON.stringify(WARDROBE);
+  else if (/\/looks\b/.test(u)) body = JSON.stringify(TRIP_LOOKS);
+  else if (u.includes('look_pieces')) body = JSON.stringify(TRIP_LOOK_PIECES);
   return r.fulfill({ status: 200, contentType: 'application/json', body });
 });
 await page.route('**nominatim**', (r) => r.abort());
@@ -185,8 +198,29 @@ await page.waitForTimeout(150);
 ok(await page.evaluate(() => getComputedStyle(document.getElementById('tv-look-page')).display === 'none'), 'back closes the look page');
 ok(await page.locator('#tv-stage .rbc-hbtn', { hasText: 'Pin to days' }).count() === 0, 'no duplicated Pin-to-days CTA anywhere');
 
-// select the imported look → the SAME interactive console, pieces resolved
-// into real capsule formula entries (unpacked pieces join the case)
+// the imported look's row opens the SAVED look's own page (Annie,
+// 2026-09-09: the same look, no changes aside from being pinned to a day,
+// whose pieces can then be packed)
+await page.evaluate(() => window.__tvDayLookOpen(1, 2));
+await page.waitForTimeout(400);
+ok(await page.locator('#sn-page').isVisible() && await page.locator('#sn-page .rb-lk-back').count() === 1 && /Travel edit/i.test(await page.locator('#sn-page .rb-lk-back').innerText()), 'the saved look opens its own page, back reading Travel edit');
+ok(!(await page.locator('#tv-result-page').isVisible()), 'the trip stands down beneath it');
+ok(/Pinned for Saturday 1 Aug/.test(await page.locator('#sn-page .rb-lk-tripstrip').innerText()) && /on the trip to Lahinch/.test(await page.locator('#sn-page .rb-lk-tripstrip').innerText()), 'the strip names the trip day');
+ok(await page.locator('#sn-page .rb-lk-packbtn').count() === 2 && await page.locator('#sn-page .rb-lk-packall').count() === 1, 'every owned row carries the case’s Pack toggle, the head Pack this look');
+ok(await page.locator('#sn-page .rb-lk-editbtn', { hasText: 'Edit & resave' }).count() === 1 && await page.locator('#sn-page .rbc-wears').count() === 2, 'the look page is otherwise the Lookbook’s: Edit & resave, the wear counts');
+const packCi = await page.evaluate(() => window.__lastTvData.capsule.findIndex(c => c.wardrobe_match && c.wardrobe_match.id === 'w1'));
+await page.evaluate((ci) => window.__lkTripPack(ci), packCi);
+await page.waitForTimeout(200);
+ok(await page.evaluate((ci) => !!window.__lastTvData.capsule[ci].packed, packCi) && await page.locator('#sn-page .rb-lk-packbtn.on').count() === 1, 'Pack on the look page packs the case');
+await page.evaluate((ci) => window.__lkTripPack(ci), packCi);
+await page.evaluate(() => window.__lkBackDoor());
+await page.waitForTimeout(400);
+ok(await page.locator('#tv-result-page').isVisible() && !(await page.locator('#tv-look-page').isVisible()), 'back lands on the trip with no look page open');
+ok((await page.locator('#tv-mp-n').innerText()) === '0', 'the pack count reads the case as she left it');
+
+// selected programmatically the imported look still draws the trip's
+// console — the SAME interactive console, pieces resolved into real
+// capsule formula entries (unpacked pieces join the case)
 await page.evaluate(() => window.__tvSelectLook(2));
 await page.waitForTimeout(150);
 ok(await page.locator('#tv-stage .rbc-panel').count() === 1, 'imported look draws the same console');
