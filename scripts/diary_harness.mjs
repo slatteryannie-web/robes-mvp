@@ -475,6 +475,39 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
   }, PAST);
   check('day page · a past row opens its day: Looks filed, the look carries Worn',
     p.visible && p.title === 'The black one' && p.sec === 'Looks filed' && /Worn/.test(p.worn || '') && p.cards === 1, JSON.stringify(p));
+  // The look row on the list opens the DAY too (the look is reached from the
+  // day page — Annie, 2026-09-09), with the door back reading Diary
+  const lr = await page.evaluate(async (TOM) => {
+    window.__rbNavGo('diary');
+    await new Promise((r) => setTimeout(r, 700));
+    const row = document.querySelector('#sn-cal .dy-row[data-date="' + TOM + '"] .dy-look');
+    const meta = row?.querySelector('.dy-look-m')?.textContent.replace(/\s+/g, ' ').trim();
+    row?.click();
+    await new Promise((r) => setTimeout(r, 700));
+    const pg = document.getElementById('dl-result-page');
+    return { meta, visible: !!pg && pg.style.display !== 'none', grid: !!pg?.querySelector('.dyp-grid'), title: pg?.querySelector('.dlm-title')?.textContent.trim(), back: pg?.querySelector('.dyp-back')?.textContent.trim(), diaryHidden: document.getElementById('sn-page')?.style.display === 'none' };
+  }, TOM);
+  check('day page · a look row on the list opens the DAY (no moment label on the row); the door back reads Diary',
+    lr.visible && lr.grid && lr.title === 'Golf Club Event' && /Diary$/.test(lr.back || '') && !/Day ·|Evening ·|Morning ·/.test(lr.meta || '') && lr.diaryHidden, JSON.stringify(lr));
+  const bk = await page.evaluate(async () => {
+    document.querySelector('#dl-result-page .dyp-back').click();
+    await new Promise((r) => setTimeout(r, 700));
+    return { diary: document.getElementById('sn-page')?.style.display === 'block' && document.getElementById('sn-page')?.classList.contains('rb-cal-on'), dlHidden: document.getElementById('dl-result-page')?.style.display === 'none' };
+  });
+  check('day page · the Diary door lands back on the Diary', bk.diary && bk.dlHidden, JSON.stringify(bk));
+  // The month view: a cell opens the day straight away — no peek in between
+  const mc = await page.evaluate(async (TOM) => {
+    window.__dySetMode('month');
+    await new Promise((r) => setTimeout(r, 500));
+    const cell = document.querySelector('#sn-cal .rb-dc[onclick*="__mvCell(\'' + TOM + '\')"], #sn-cal [onclick*="__mvCell(\'' + TOM + '\')"]');
+    if (!cell) return { cell: false, sample: Array.from(document.querySelectorAll('#sn-cal [onclick*="__mvCell"]')).slice(0, 2).map((c) => c.getAttribute('onclick')) };
+    cell.click();
+    await new Promise((r) => setTimeout(r, 700));
+    const pg = document.getElementById('dl-result-page');
+    return { cell: true, peek: !!document.getElementById('rb-dpk'), visible: !!pg && pg.style.display !== 'none', grid: !!pg?.querySelector('.dyp-grid'), title: pg?.querySelector('.dlm-title')?.textContent.trim(), back: pg?.querySelector('.dyp-back')?.textContent.trim() };
+  }, TOM);
+  check('day page · a month cell opens the day directly — no peek; the door back reads Diary',
+    mc.cell && mc.peek === false && mc.visible && mc.grid && mc.title === 'Golf Club Event' && /Diary$/.test(mc.back || ''), JSON.stringify(mc));
   check('day page · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
   await ctx.close();
 }

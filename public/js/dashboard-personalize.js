@@ -4767,7 +4767,8 @@
       };
       // Deleting is destructive — always confirm first (beta feedback:
       // looks were vanishing on a stray tap of the hover ×).
-      window._rbConfirmDelete = function(title, onYes) {
+      window._rbConfirmDelete = function(title, onYes, opts) {
+        opts = opts || {};
         document.getElementById('rb-del-modal')?.remove();
         const modal = document.createElement('div');
         modal.id = 'rb-del-modal';
@@ -4776,10 +4777,10 @@
         modal.innerHTML = `
           <div style="background:#FAF8F5;border-radius:20px;width:100%;max-width:380px;box-sizing:border-box;box-shadow:0 24px 60px -12px rgba(32,32,33,0.28);padding:28px 26px;text-align:center">
             <p style="font-family:'Cormorant',Georgia,serif;font-size:24px;font-weight:300;color:#202021;margin:0 0 8px;line-height:1.25">${title}</p>
-            <p style="font-size:12.5px;color:#6E6A64;line-height:1.6;margin:0 0 20px">This can’t be undone.</p>
+            <p style="font-size:12.5px;color:#6E6A64;line-height:1.6;margin:0 0 20px">${_waEsc(opts.sub || 'This can’t be undone.')}</p>
             <div style="display:flex;gap:9px">
               <button id="rb-del-cancel" style="flex:1;padding:13px 20px;border:1px solid rgba(32,32,33,0.18);border-radius:100px;background:#fff;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:#202021;font-family:inherit">Cancel</button>
-              <button id="rb-del-yes" style="flex:1;padding:13px 20px;border:none;border-radius:100px;background:#202021;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:#fff;font-family:inherit">Delete</button>
+              <button id="rb-del-yes" style="flex:1;padding:13px 20px;border:none;border-radius:100px;background:#202021;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:#fff;font-family:inherit">${_waEsc(opts.yes || 'Delete')}</button>
             </div>
           </div>`;
         document.body.appendChild(modal);
@@ -8977,7 +8978,8 @@
         if (!s) return;
         const m = s.moments.find(x => (x.slot || 'day') === 'day') || s.moments[0];
         _rbTrack('day_opened_from_peek', { source_type: m.source_type });
-        window._rbOpenPlannedDay(m);
+        const sn = document.getElementById('sn-page');
+        window._rbOpenPlannedDay(m, { from: (sn && sn.style.display !== 'none') ? 'diary' : 'home' });
       };
       window.__rbDayPeekWear = function() {
         const s = _dpkState;
@@ -14674,7 +14676,8 @@ button.rb-lk-live{cursor:pointer}
         const dayChg = _dlDayChanges();
         // A fresh open (anything but a rerender of the same data) lands on
         // the saved view again, photo first.
-        if (!(opts && opts.rerender)) { _dlDayEdit = false; _dlLookView = null; }
+        if (!(opts && opts.rerender)) { _dlDayEdit = false; _dlLookView = null; _dlFromDay = _dlFromDayPending; _dlFromDayPending = null; }
+        const dlFromDay = !!(_dlFromDay && data.anchor_date && _dlFromDay === data.anchor_date && !dlLoose);
 
         // A look built from a styled key piece keeps a route back to its
         // three-ways page — origin flags are stamped by __dlSubmit and ride
@@ -14899,9 +14902,18 @@ button.rb-lk-live{cursor:pointer}
         const dayBackHtml = (data.anchor_date && !dlLoose)
           ? `<button type="button" class="dlm-dayback" onclick="window.__dlToDay('${_waEsc(data.anchor_date)}')"><span class="chev">‹</span>${_waEsc(_lkFmtDay(data.anchor_date))}</button>`
           : '';
-        try { dlResultPage.innerHTML = `
-          <div class="dlm-wrap">
-            <header>
+        // From the day page the header is the LOOK's: the door back to the
+        // day, the eyebrow, its name + the rename pencil. The day's own
+        // facts (its name, the weather, the day pencil) live on the day page.
+        const lookHeadHtml = `
+              ${dayBackHtml}
+              <div class="dlm-eyebrow">${_waEsc(_rbTrackCfg('daily').artifact.eyebrow)}</div>
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <h1 class="dlm-title">${_waEsc((dayLook && dayLook.name) || headline)}</h1>
+                <button class="rb-rename-tbtn" title="Rename the look" style="margin-top:6px" onclick="window.__rbRename&&window.__rbRename('dl')"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button>
+              </div>
+              ${dlVibe ? `<div class="dlm-meta-row"><button class="dlm-vibe" onclick="window.__dlTagsEdit&&window.__dlTagsEdit()" title="Not quite? Change the vibe">${_waEsc(dlVibe)}</button></div>` : ''}`;
+        const dayHeadHtml = `
               ${dayBackHtml}
               ${dayEyebrow ? `<div class="dlm-eyebrow">${_waEsc(dayEyebrow)}</div>` : ''}
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
@@ -14912,7 +14924,11 @@ button.rb-lk-live{cursor:pointer}
                 ${ctx && (ctx.city || ctx.tempRange) ? `<div class="dlm-wx"><span>🌤</span><strong>${_waEsc([ctx.city, ctx.month].filter(Boolean).join(' · '))}</strong>${ctx.tempRange ? `<span class="div"></span><span>${_waEsc(ctx.tempRange)}</span>` : ''}${ctx.hint ? `<span class="div"></span><span>${_waEsc(ctx.hint)}</span>` : ''}</div>` : ''}
                 ${headline && !wearingTitle && !dlLoose ? `<div class="dlm-wearing">Wearing <em>${_waEsc(headline)}</em><button class="rb-rename-tbtn" title="Rename the look" onclick="window.__rbRename&&window.__rbRename('dl')"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg></button></div>` : ''}
                 ${dlVibe ? `<button class="dlm-vibe" onclick="window.__dlTagsEdit&&window.__dlTagsEdit()" title="Not quite? Change the vibe">${_waEsc(dlVibe)}</button>` : ''}
-              </div>
+              </div>`;
+        try { dlResultPage.innerHTML = `
+          <div class="dlm-wrap">
+            <header>
+              ${dlFromDay ? lookHeadHtml : dayHeadHtml}
               ${dlVibe && _dlVibreadOn(data) ? `<div class="dlm-vibread">Robes read <b>${_waEsc(dlVibe)}</b> as the vibe. <button onclick="window.__dlTagsEdit&&window.__dlTagsEdit()">Not quite? Change the vibe</button></div>` : ''}
               ${data.look_id && typeof _lkFind === 'function' && _lkFind(data.look_id) ? `<div class="dlm-lksrc">Saved in your Lookbook — <button onclick="window.__lkFromDaily&&window.__lkFromDaily('${_waEsc(String(data.look_id))}')">Look details →</button></div>` : ''}
               ${kpSrc ? `<div class="dlm-lksrc">Built from <em>${_waEsc(kpSrc.title || 'your styled key piece')}</em> — <button onclick="window.__dlBackToKp()">Back to the three ways →</button></div>` : ''}
@@ -14989,8 +15005,13 @@ button.rb-lk-live{cursor:pointer}
       // with a door back here); its ✕ takes the look off the day. Rides the
       // same overlay as the look console (#dl-result-page), so every closer,
       // the nav sync and the mobile back pill already cover it.
-      var _dyPg = null;          // { date, rows, fetched }
+      var _dyPg = null;          // { date, rows, fetched, from }
       var _dyPgNaming = false;
+      // A generated look opened FROM the day page shows the look alone —
+      // the day's header stays on the day page; the console carries the
+      // door back (Annie, 2026-09-09). Set by _rbOpenMoment, read once by
+      // the next render.
+      var _dlFromDay = null, _dlFromDayPending = null;
       // The date's rows in hand: the rail cache ∪ the Diary's month rows,
       // then a fresh fetch repaints (a date outside the rail's week may
       // not be cached at all).
@@ -15058,7 +15079,6 @@ button.rb-lk-live{cursor:pointer}
         const info = _dyPgLook(m);
         if (!info) return '';
         const k = _waEsc(_dyPgKey(m));
-        const label = _pdMomentLabel(i, n);
         const worn = m.status === 'worn';
         const img = info.hero
           ? `<img src="${_waEsc(info.hero)}" alt="${_waEsc(info.name)}" loading="lazy" onerror="this.remove()">`
@@ -15068,7 +15088,7 @@ button.rb-lk-live{cursor:pointer}
           `<button type="button" class="dyp-open" onclick="window.__rbDayOpenLook('${k}')">` +
             `<span class="dyp-img${info.hero ? '' : ' mosaic'}">${img}${info.busy ? '<span class="dyp-busy">Creating her frame…</span>' : ''}</span>` +
             `<span class="dyp-body">` +
-              `<span class="dyp-ey"><span>Look ${i + 1}</span><span class="r">${label ? `<span class="dyp-when">${_waEsc(label)}</span>` : ''}${worn ? '<span class="dyp-worn">Worn ✓</span>' : ''}</span></span>` +
+              `<span class="dyp-ey"><span>Look ${i + 1}</span><span class="r">${worn ? '<span class="dyp-worn">Worn ✓</span>' : ''}</span></span>` +
               `<span class="dyp-name">${_waEsc(info.name)}</span>` +
               `<span class="dyp-n">${info.pieces ? _waEsc(_lkN(info.pieces, 'piece')) : 'a look'}</span>` +
             `</span>` +
@@ -15110,9 +15130,11 @@ button.rb-lk-live{cursor:pointer}
         const tripHtml = tvIt ? `<div class="dlm-lksrc">Part of <em>${_waEsc(tvIt.title || 'a travel edit')}</em> — <button onclick="window._rbOpenMoment(window._dyPgTrip())">Open the travel edit →</button></div>` : '';
         const add = `<button type="button" class="dyp-add" onclick="window.__mvWear('${date}')"><span class="dyp-add-plus">+</span><span class="dyp-add-l">Add a look</span><span class="dyp-add-s">${n ? 'another moment in the day' : 'the first moment of the day'}</span></button>`;
         window.rbSetCrumb && window.rbSetCrumb([{ label: 'Diary' }]);
+        const backHtml = `<button type="button" class="dlm-dayback dyp-back" onclick="window.__rbDayBack()"><span class="chev">‹</span>${s.from === 'home' ? 'Home' : 'Diary'}</button>`;
         dlResultPage.innerHTML = `
           <div class="dlm-wrap dyp-wrap">
             <header>
+              ${backHtml}
               <div class="dlm-eyebrow">${_waEsc(long)}</div>
               <div class="dyp-titlerow">${titleHtml}${pen}</div>
               ${wxHtml}
@@ -15129,11 +15151,28 @@ button.rb-lk-live{cursor:pointer}
         }
       }
       window._dyPgTrip = function() { return _dyPg ? _dyPg.rows.find(r => r.source_type === 'travel') || null : null; };
+      // The day's door back to where she came from
+      window.__rbDayBack = function() {
+        const from = (_dyPg && _dyPg.from) || 'diary';
+        if (dlResultPage) dlResultPage.style.display = 'none';
+        _dyPg = null;
+        window.rbClearCrumb && window.rbClearCrumb();
+        if (from === 'home') {
+          window._rbNav && window._rbNav('/dashboard');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (window.__rbDiaryOpen) window.__rbDiaryOpen();
+        else if (window.__rbNavGo) window.__rbNavGo('back');
+      };
       window.__rbDayOpen = function(date, opts) {
         date = String(date || _pdLocalISO()).slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
         opts = opts || {};
         _dlStopPolling();
+        // Where she came from decides the door back: the Diary when it was
+        // open (or is the nav's origin), else Home (the rail).
+        const snOpen = (() => { const el = document.getElementById('sn-page'); return !!el && el.style.display !== 'none' && el.classList.contains('rb-cal-on'); })();
+        const from = opts.from || (_dyPg && _dyPg.date === date && _dyPg.from) || (snOpen ? 'diary' : 'home');
+        if (from === 'diary') window._rbNavOrigin = 'diary';
         // The page holds no look of its own — every guard the console arms
         // stands down (a stale __lastDlData would ask about a look that
         // isn't on screen).
@@ -15142,7 +15181,7 @@ button.rb-lk-live{cursor:pointer}
         _dlDayEdit = false; _dlLookView = null; _dlActiveSaveId = null;
         _waAfterAdd = null;
         _dyPgNaming = false;
-        _dyPg = { date, rows: _dyPgRows(date, opts.seed), fetched: false };
+        _dyPg = { date, rows: _dyPgRows(date, opts.seed), fetched: false, from };
         // The overlay sits at z-40 — the Lookbook / Inspiration / piece
         // pages above it must close, or the day paints invisibly beneath.
         const snEl = document.getElementById('sn-page');
@@ -15185,11 +15224,8 @@ button.rb-lk-live{cursor:pointer}
         if (!s) return;
         const m = _pdDayLooks(s.rows).find(x => _dyPgKey(x) === key);
         if (!m) return;
-        // The day's title travels with the look: the console's header names
-        // the day by it (a pinned look's row may carry an older name).
-        const title = _pdDayTitle(s.rows);
         _rbTrack('day_look_opened', { source_type: m.source_type });
-        window._rbOpenMoment(title && m.source_type === 'look' ? Object.assign({}, m, { activity: title }) : m);
+        window._rbOpenMoment(m, { fromDay: s.date, from: s.from });
       };
       // ✕ — a pinned look comes off the day (it stays in the Lookbook, and
       // the day keeps its name); a generated day look is deleted, after a
@@ -15212,11 +15248,14 @@ button.rb-lk-live{cursor:pointer}
         };
         if (m.source_type === 'look') {
           const l = _lkFind(m.source_id);
-          keepName();
-          _lkUnpin(m.source_id, s.date);
-          drop();
-          _waShowToast('“' + ((l && l.name) || 'The look') + '” taken off ' + _lkFmt(s.date) + ' — it stays in your Lookbook');
-          _rbTrack('day_look_removed', { source_type: 'look' });
+          const nm = (l && l.name) || 'this look';
+          window._rbConfirmDelete('Take “' + nm + '” off ' + _lkFmtDay(s.date) + '?', function() {
+            keepName();
+            _lkUnpin(m.source_id, s.date);
+            drop();
+            _waShowToast('“' + nm + '” taken off ' + _lkFmt(s.date) + ' — it stays in your Lookbook');
+            _rbTrack('day_look_removed', { source_type: 'look' });
+          }, { sub: 'It stays in your Lookbook — only the day lets it go.', yes: 'Remove' });
           return;
         }
         const it = snLoad().find(x => String(x.id) === String(m.source_id));
@@ -21344,7 +21383,7 @@ body>*:not(#tv-result-page){display:none !important}
           if (!slot || !slot.moments.length) return;
           const m = slot.moments.find(x => (x.slot || 'day') === 'day') || slot.moments[0];
           _rbTrack('day_opened_from_rail', { source_type: m.source_type, state: cardState(slot) });
-          window._rbOpenPlannedDay(m);
+          window._rbOpenPlannedDay(m, { from: 'home' });
         };
         // ONE opener for a planned_days moment — rail card, month cell and
         // the ?d= deep link all land on the same console through this
@@ -21353,27 +21392,36 @@ body>*:not(#tv-result-page){display:none !important}
         // look on it; a look is opened from there). A trip day still opens
         // inside its trip. The seed rides along so a day opened for a
         // moment the cache hasn't caught up with still shows that moment.
-        window._rbOpenPlannedDay = function(m) {
+        window._rbOpenPlannedDay = function(m, o) {
           if (!m) return;
           if (m.source_type === 'travel') { window._rbOpenMoment(m); return; }
-          if (window.__rbDayOpen) { window.__rbDayOpen(m.day_date || _pdLocalISO(), { seed: m.source_type === 'day' ? null : m }); return; }
+          if (window.__rbDayOpen) { window.__rbDayOpen(m.day_date || _pdLocalISO(), { seed: m.source_type === 'day' ? null : m, from: o && o.from }); return; }
           window._rbOpenMoment(m);
         };
-        // ONE moment — the look itself, on its day.
-        window._rbOpenMoment = function(m) {
+        // ONE moment — the look itself. From the day page (o.fromDay) a
+        // pinned look opens its LOOK PAGE with the day as its door back, and
+        // a generated look opens its console without the day's header —
+        // the breadcrumb runs look → day → where she came from.
+        window._rbOpenMoment = function(m, o) {
           if (!m) return;
+          o = o || {};
           if (m.source_type === 'day') { if (window.__rbDayOpen) window.__rbDayOpen(m.day_date); return; }
-          // A pinned Look opens AS THE DAY — the Daily console hosting the
-          // look with date + weather context (__lkOpenAsDay), never a bounce
-          // to the wardrobe's Look detail (source_id is a looks uuid, never
-          // a numeric id). The detail survives only as the fallback when the
-          // look's pieces can't be resolved.
           if (m.source_type === 'look') {
+            if (o.fromDay && window.__lkOpen && _lkFind(m.source_id)) {
+              const date = o.fromDay, from = o.from;
+              window.__lkOpen(m.source_id, { from: { label: _lkFmtDay(date), go: function() { window.__rbDayOpen(date, { from }); } } });
+              return;
+            }
+            // Elsewhere a pinned Look opens AS THE DAY — the Daily console
+            // hosting the look with date + weather context (__lkOpenAsDay),
+            // never a bounce to the wardrobe's Look detail. The detail
+            // survives only as the fallback when the pieces can't resolve.
             if (window.__lkOpenAsDay && window.__lkOpenAsDay(m)) return;
             if (window.__rbNavGo) window.__rbNavGo('wardrobe');
             setTimeout(() => { window.__lkOpen && window.__lkOpen(m.source_id); }, 260);
             return;
           }
+          if (o.fromDay && m.source_type === 'daily') _dlFromDayPending = o.fromDay;
           window.__snOpenItem(Number(m.source_id));
           // Land on the tapped day, not the plan's first day
           if (m.source_type === 'travel') {
@@ -21974,10 +22022,12 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           const n = _dcPieceTotal(m) || (m.item_ids || []).length;
           const trip = m.source_type === 'travel';
           // A trip day keeps Day / Evening (its own model); a diary day's
-          // looks read by their moment in the day.
-          const pre = trip ? ((m.slot || 'day') === 'evening' ? 'Evening · ' : '')
-            : (n0 > 1 ? (_pdMomentLabel(i, n0) || 'Look ' + (i + 1)) + ' · ' : '');
-          return `<button type="button" class="dy-look" onclick="window.${trip ? '__dyOpen' : '__dyOpenLook'}('${k}')">${_dyThumb(m)}<span class="dy-look-b"><span class="dy-look-n">${_waEsc(nm)}</span><span class="dy-look-m"><i class="dy-chk">${_DY_SVG.chk}</i>${pre}${n ? _waEsc(_lkN(n, 'piece')) : 'a look'}</span></span></button>`;
+          // looks carry no moment label (Annie, 2026-09-09 — to be built
+          // properly later). Every row opens the DAY: the look is reached
+          // from the day page.
+          const pre = trip ? ((m.slot || 'day') === 'evening' ? 'Evening · ' : '') : '';
+          void i; void n0;
+          return `<button type="button" class="dy-look" onclick="window.__dyOpen('${k}')">${_dyThumb(m)}<span class="dy-look-b"><span class="dy-look-n">${_waEsc(nm)}</span><span class="dy-look-m"><i class="dy-chk">${_DY_SVG.chk}</i>${pre}${n ? _waEsc(_lkN(n, 'piece')) : 'a look'}</span></span></button>`;
         }
         function _dyGutter(date, withMonth, quiet) {
           const d = new Date(date + 'T00:00:00');
@@ -22104,7 +22154,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
         // day); the card's title and a past row open THE DAY (its page).
         window.__dyOpen = function(key) {
           const m = _dyMoments[key];
-          if (m && window._rbOpenPlannedDay) window._rbOpenPlannedDay(m);
+          if (m && window._rbOpenPlannedDay) window._rbOpenPlannedDay(m, { from: 'diary' });
         };
         window.__dyOpenLook = function(key) {
           const m = _dyMoments[key];
@@ -22113,7 +22163,7 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
           if (window._rbOpenMoment) window._rbOpenMoment(m);
         };
         window.__dyOpenDay = function(date) {
-          if (window.__rbDayOpen) window.__rbDayOpen(date);
+          if (window.__rbDayOpen) window.__rbDayOpen(date, { from: 'diary' });
         };
         window._rbMvRows = function() { return Array.isArray(_mvRows) ? _mvRows : []; };
         window.__dyRename = function(date, key) {
@@ -22164,19 +22214,10 @@ button.rb-mv-morebtn:hover{color:var(--ink,#202021)}
         window.__mvCell = function(date) {
           const here = _mvRows.filter(r => r.day_date === date);
           if (!here.length) return;
-          if (_rbDayCardOn()) {
-            // Body-tap = the day peek (Annie §6.2) — click-through to the
-            // shared opener lives inside it.
-            const moments = [];
-            ['day', 'evening'].forEach(sl => {
-              const w = _pdWinner(here.filter(r => (r.slot || 'day') === sl));
-              if (w) moments.push(w);
-            });
-            if (moments.length) window.__rbDayPeek(date, moments);
-            return;
-          }
+          // A month cell opens the day itself (Annie, 2026-09-09 — no peek
+          // in between); a trip day still opens inside its trip.
           const m = _pdWinner(here.filter(r => (r.slot || 'day') === 'day')) || _pdWinner(here);
-          window._rbOpenPlannedDay(m);
+          window._rbOpenPlannedDay(m, { from: 'diary' });
         };
         window.__mvBand = function(sid, type) {
           _rbTrack('month_band_opened', { source_type: type });

@@ -3064,6 +3064,7 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
       add: q('.dyp-add') ? q('.dyp-add .dyp-add-l').textContent + ' · ' + q('.dyp-add .dyp-add-s').textContent : null,
       console: !!q('.dlm-console'), switcher: !!q('[onclick*="__dlSetSlot"]'),
       back: q('.dlm-dayback')?.textContent.trim() || null,
+      whens: qa('.dyp-when').length,
     };
   });
   // Pin lk-1 to today through the shared picker, then open the day.
@@ -3080,6 +3081,8 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
     d1.visible && /^[A-Z][a-z]+day \d+ [A-Z]/.test(d1.eyebrow || '') && d1.title === 'Name the day' && d1.titleIsDoor && !d1.pen
       && d1.sec === 'Looks filed today' && d1.stat === '1 look · 4 pieces filed' && d1.console === false,
     JSON.stringify(d1));
+  check('day page · the day carries a door back to where she came from (Home from the rail; Diary from the Diary)',
+    d1.back === '‹Home' || d1.back === '‹ Home', d1.back);
   check('day page · one look, one card: LOOK 1, no moment label, the name, the piece count, her frame, the ✕',
     d1.cards.length === 1 && d1.cards[0].ey === 'Look 1' && d1.cards[0].when === null && d1.cards[0].name === 'The Thursday one'
       && d1.cards[0].n === '4 pieces' && d1.cards[0].img && d1.cards[0].x,
@@ -3119,49 +3122,62 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   check('day page · + Add a look opens the shared picker, headed by the day\'s name; the pick lands as a second card',
     /^Board day/.test(picker.ttl || '') && picker.modalGone && d3.cards.length === 2 && d3.stat === '2 looks · 7 pieces filed',
     JSON.stringify([picker, d3.cards.length, d3.stat]));
-  check('day page · two looks read Day / Evening by their place in the day; the second names itself',
-    d3.cards[0].when === 'Day' && d3.cards[1].when === 'Evening' && d3.cards[1].ey === 'Look 2'
+  // Moment labels are off for now (Annie, 2026-09-09 — to be built properly later)
+  check('day page · two looks read LOOK 1 / LOOK 2 with no moment label; the second names itself',
+    d3.whens === 0 && d3.cards[0].when === null && d3.cards[1].when === null && d3.cards[1].ey === 'Look 2'
       && d3.cards[1].name === 'The tank one' && d3.cards[1].n === '3 pieces',
-    JSON.stringify(d3.cards));
+    JSON.stringify([d3.whens, d3.cards]));
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + '/day-page-2.png' }).catch(() => {});
-  // A card opens the look: the console under the day's header, a door back, no switcher
+  // A card opens the LOOK — a pinned look's own page, with the day as its
+  // door back; no day header on the look (Annie, 2026-09-09)
   await page.evaluate(async () => {
     document.querySelector('#dl-result-page .dyp-card .dyp-open').click();
     await new Promise((r) => setTimeout(r, 600));
   });
-  const look = await page.evaluate(() => ({
-    console: !!document.querySelector('#dl-result-page .dlm-console'),
-    saved: !!document.querySelector('#dl-result-page .dlm-console.dlm-saved'),
-    title: document.querySelector('#dl-result-page .dlm-title')?.textContent,
-    wearing: document.querySelector('#dl-result-page .dlm-wearing')?.textContent.replace(/\s+/g, ' '),
-    back: document.querySelector('#dl-result-page .dlm-dayback')?.textContent.trim(),
-    switcher: !!document.querySelector('#dl-result-page [onclick*="__dlSetSlot"]'),
-    grid: !!document.querySelector('#dl-result-page .dyp-grid'),
-  }));
-  check('day page · a card opens the look on its day — the saved view under the day\'s header, no Day/Evening switcher',
-    look.console && look.saved && look.title === 'Board day' && /The Thursday one/.test(look.wearing || '') && look.switcher === false && look.grid === false,
+  const look = await page.evaluate(() => {
+    const sn = document.getElementById('sn-page');
+    const wrap = document.getElementById('rb-lk-wrap');
+    return {
+      lookPage: !!sn && sn.style.display === 'block' && !!wrap && getComputedStyle(wrap).display !== 'none',
+      title: document.querySelector('#rb-lk-wrap .rb-lk-title')?.textContent.trim(),
+      eyebrow: document.querySelector('#rb-lk-wrap .rb-lk-eyebrow')?.textContent.trim(),
+      back: document.querySelector('#rb-lk-wrap .rb-lk-back')?.textContent.trim(),
+      dayHeader: !!document.querySelector('#rb-lk-wrap .dlm-eyebrow, #rb-lk-wrap .dlm-wx'),
+      dlHidden: document.getElementById('dl-result-page')?.style.display === 'none',
+    };
+  });
+  check('day page · a card opens the LOOK itself (the look page: Saved look, its name) — no day header on the look',
+    look.lookPage && look.title === 'The Thursday one' && /saved look/i.test(look.eyebrow || '') && look.dayHeader === false,
     JSON.stringify(look));
   check('day page · the look carries a door back to the day, reading the date',
-    /^‹\s*[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}$/.test(look.back || ''), look.back);
+    /^‹?\s*[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}$/.test(look.back || ''), look.back);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + '/day-look.png' }).catch(() => {});
   await page.evaluate(async () => {
-    document.querySelector('#dl-result-page .dlm-dayback').click();
+    document.querySelector('#rb-lk-wrap .rb-lk-back').click();
     await new Promise((r) => setTimeout(r, 500));
   });
   const d4 = await readDay();
   check('day page · the door returns to the day, both looks still on it',
     d4.visible && !d4.console && d4.title === 'Board day' && d4.cards.length === 2, JSON.stringify([d4.title, d4.cards.length, d4.console]));
-  // ✕ takes a pinned look off the day quietly; the day keeps its name
+  // ✕ asks first (Annie, 2026-09-09), then takes the pinned look off the
+  // day — it stays in the Lookbook, and the day keeps its name
   const removed = await page.evaluate(async () => {
     const cards = document.querySelectorAll('#dl-result-page .dyp-card');
     if (cards.length < 2) return { cards: cards.length, html: (document.querySelector('#dl-result-page .dyp-grid')?.textContent || '').slice(0, 200) };
     cards[1].querySelector('.dyp-x').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const modal = document.getElementById('rb-del-modal');
+    const out = { confirm: !!modal, copy: (modal?.textContent || '').replace(/\s+/g, ' ').trim(), yes: modal?.querySelector('#rb-del-yes')?.textContent,
+      cardsBefore: document.querySelectorAll('#dl-result-page .dyp-card').length };
+    modal?.querySelector('#rb-del-yes')?.click();
     await new Promise((r) => setTimeout(r, 400));
-    return { confirm: !!document.getElementById('rb-del-modal'), toast: document.body.textContent.includes('taken off') };
+    out.toast = document.body.textContent.includes('taken off');
+    return out;
   });
   const d5 = await readDay();
-  check('day page · ✕ takes the look off the day (no confirm for a pin — it stays in the Lookbook); the day keeps its name',
-    !removed.confirm && removed.toast && d5.cards.length === 1 && d5.cards[0].name === 'The Thursday one' && d5.title === 'Board day' && d5.stat === '1 look · 4 pieces filed',
+  check('day page · ✕ asks first ("Take … off …?", Remove), then the look comes off the day and stays in the Lookbook; the day keeps its name',
+    removed.confirm && removed.cardsBefore === 2 && /Take “The tank one” off/.test(removed.copy) && /stays in your Lookbook/.test(removed.copy) && removed.yes === 'Remove'
+      && removed.toast && d5.cards.length === 1 && d5.cards[0].name === 'The Thursday one' && d5.title === 'Board day' && d5.stat === '1 look · 4 pieces filed',
     JSON.stringify([removed, d5.cards.map((c) => c.name), d5.title, d5.stat]));
   check('day page · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
   await ctx.close();
