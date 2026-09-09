@@ -437,6 +437,48 @@ const inMonth = (d) => d.slice(0, 7) === monthOf;
   await ctx.close();
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 4 · The day page (Annie, 2026-09-09) — a diary day opens on its own page:
+// the date, its name, every look on it as a card. The card's title on the
+// list is the door; the past row too.
+{
+  const { ctx, page, errs } = await boot(browser);
+  await page.evaluate(() => window.__rbNavGo('diary'));
+  await page.waitForTimeout(900);
+  const d = await page.evaluate(async (TOM) => {
+    document.querySelector('#sn-cal .dy-row[data-date="' + TOM + '"] .dy-card-h h3').click();
+    await new Promise((r) => setTimeout(r, 700));
+    const pg = document.getElementById('dl-result-page');
+    const q = (s) => pg && pg.querySelector(s);
+    return {
+      diaryHidden: document.getElementById('sn-page')?.style.display === 'none',
+      visible: !!pg && pg.style.display !== 'none',
+      eyebrow: q('.dlm-eyebrow')?.textContent, title: q('.dlm-title')?.textContent.trim(),
+      sec: q('.dyp-sec-l')?.textContent, stat: q('.dyp-sec-r')?.textContent,
+      cards: Array.from(pg ? pg.querySelectorAll('.dyp-card') : []).map((c) => (c.querySelector('.dyp-ey > span:first-child')?.textContent + ' · ' + c.querySelector('.dyp-name')?.textContent + ' · ' + c.querySelector('.dyp-n')?.textContent)),
+      add: !!q('.dyp-add'),
+      diaryLit: document.getElementById('rb-tn-diary')?.classList.contains('active'),
+    };
+  }, TOM);
+  check('day page · the card\'s title opens the day: its name, the date, Looks planned, its look as a card, + Add a look, the Diary still lit',
+    d.diaryHidden && d.visible && d.title === 'Golf Club Event' && /^[A-Z][a-z]+day \d+ [A-Z]/.test(d.eyebrow || '') && d.sec === 'Looks planned'
+      && d.stat === '1 look · 3 pieces filed' && JSON.stringify(d.cards) === JSON.stringify(['Look 1 · Daytime Nine · 3 pieces']) && d.add && d.diaryLit,
+    JSON.stringify(d));
+  const p = await page.evaluate(async (PAST) => {
+    window.__rbNavGo('diary');
+    await new Promise((r) => setTimeout(r, 700));
+    document.querySelector('#sn-cal .dy-row[data-date="' + PAST + '"] .dy-past').click();
+    await new Promise((r) => setTimeout(r, 700));
+    const pg = document.getElementById('dl-result-page');
+    const q = (s) => pg && pg.querySelector(s);
+    return { visible: !!pg && pg.style.display !== 'none', title: q('.dlm-title')?.textContent.trim(), sec: q('.dyp-sec-l')?.textContent, worn: q('.dyp-card .dyp-worn')?.textContent, cards: pg ? pg.querySelectorAll('.dyp-card').length : 0 };
+  }, PAST);
+  check('day page · a past row opens its day: Looks filed, the look carries Worn',
+    p.visible && p.title === 'The black one' && p.sec === 'Looks filed' && /Worn/.test(p.worn || '') && p.cards === 1, JSON.stringify(p));
+  check('day page · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
+  await ctx.close();
+}
+
 await browser.close();
 server.kill();
 console.log(`\n${pass}/${pass + fail} checks passed`);

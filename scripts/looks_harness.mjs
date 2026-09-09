@@ -107,6 +107,13 @@ async function boot(browser, { width = 1280, looksTable = true, seed = true, dro
   const ctx = await browser.newContext({ viewport: { width, height: 1200 } });
   const page = await ctx.newPage();
   const writes = [];
+  // planned_days is STATEFUL in the stub (2026-09-09): the rows the app
+  // upserts come back on the next read, as the server's would — the rail
+  // and the day page refetch after every pin, and a read that returned
+  // nothing would erase the pin the test just made.
+  const pdRows = [];
+  const pdKey = (x) => String(x.source_id) + '|' + (x.day_index || 0) + '|' + (x.slot || 'day');
+  const pdParam = (rest, k) => { const mm = new RegExp('[?&]' + k + '=([^&]*)').exec(rest); return mm ? decodeURIComponent(mm[1]) : null; };
 
   await page.route('**cdn.jsdelivr.net/**', (r) =>
     r.fulfill({ status: 200, contentType: 'application/javascript', body: SUPA_STUB }));
@@ -119,6 +126,36 @@ async function boot(browser, { width = 1280, looksTable = true, seed = true, dro
     if (m !== 'GET') {
       try { postBody = req.postDataJSON(); } catch (_) { postBody = req.postData(); }
       writes.push({ method: m, url: u.split('/rest/v1/')[1] || u, body: postBody });
+    }
+    const rest = u.split('/rest/v1/')[1] || '';
+    if (/^planned_days\b/.test(rest)) {
+      if (m === 'POST' && Array.isArray(postBody)) {
+        postBody.forEach((x) => { const i = pdRows.findIndex((y) => pdKey(y) === pdKey(x)); const row = Object.assign({ id: 'pd-' + pdKey(x), created_at: new Date().toISOString() }, i >= 0 ? pdRows[i] : {}, x); if (i >= 0) pdRows[i] = row; else pdRows.push(row); });
+        return r.fulfill({ status: 201, contentType: 'application/json', body: '[]' });
+      }
+      if (m === 'DELETE') {
+        const sid = pdParam(rest, 'source_id')?.replace(/^eq\./, '');
+        const ge = pdParam(rest, 'day_index')?.replace(/^gte\./, '');
+        const lt = pdParam(rest, 'day_date')?.replace(/^lt\./, ''), gt = pdParam(rest, 'day_date')?.replace(/^gt\./, '');
+        const slotEv = /slot=eq\.evening/.test(rest);
+        for (let i = pdRows.length - 1; i >= 0; i--) {
+          const y = pdRows[i];
+          if (sid != null && String(y.source_id) !== sid) continue;
+          if (ge != null && !((y.day_index || 0) >= +ge)) continue;
+          if (slotEv && (y.slot || 'day') !== 'evening') continue;
+          if (/day_date=lt\./.test(rest) && !(y.day_date < lt)) continue;
+          if (/day_date=gt\./.test(rest) && !(y.day_date > gt)) continue;
+          if (ge == null && !slotEv && !/day_date=/.test(rest) && sid == null) continue;
+          pdRows.splice(i, 1);
+        }
+        return r.fulfill({ status: 204, contentType: 'application/json', body: '' });
+      }
+      if (m === 'GET') {
+        const from = pdParam(rest, 'day_date')?.replace(/^gte\./, '');
+        const toM = /day_date=lte\.([^&]*)/.exec(rest); const to = toM ? toM[1] : null;
+        const fromM = /day_date=gte\.([^&]*)/.exec(rest); const fr = fromM ? fromM[1] : from;
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pdRows.filter((y) => (!fr || y.day_date >= fr) && (!to || y.day_date <= to))) });
+      }
     }
     const missing = () => r.fulfill({
       status: 404, contentType: 'application/json',
@@ -2832,9 +2869,11 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   // The head is the look page's register: the wear verb + ONE edit door
   // (Edit this day ↔ Edit & resave); Restyle lives inside the edit console;
   // no Share anywhere on the look for now (Annie, 2026-09-08).
-  check('saved view · the head carries Wore it + Edit this day, the Day/Evening switcher, and no Share',
+  // The Day / Evening switcher is retired (Annie, 2026-09-09): a day holds
+  // any number of looks, listed on the day page; this is one of them.
+  check('saved view · the head carries Wore it + Edit this day, no Day/Evening switcher, and no Share',
     savedView.btns.join(' | ') === '✓ Wore it | Edit this day' && savedView.hbtns === 0
-      && savedView.share == null && savedView.badge === false && savedView.switcher === true,
+      && savedView.share == null && savedView.badge === false && savedView.switcher === false,
     JSON.stringify([savedView.btns, savedView.hbtns, savedView.share, savedView.badge, savedView.switcher]));
   // The same photograph door and note the look page carries, the diary
   // button off (this IS the day), and the tags row editing the LOOK.
@@ -2993,7 +3032,169 @@ const routeBuildNote = (page) => page.route('**/api/lookbuild/note', (r) =>
   await ctx.close();
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 11 · THE DAY PAGE (Annie, 2026-09-09) — a day holds any number of looks.
+// Opening a day lands on its page: the date, its name + the pencil, the
+// weather, then every look on it as a card (her model, LOOK n, its moment,
+// the name, the piece count) and + Add a look. A card opens the look — the
+// console, with a door back to the day and NO Day / Evening switcher; ✕
+// takes a look off the day; the day renames in one place for every look.
+// ─────────────────────────────────────────────────────────────────────────
+{
+  const { ctx, page, errs, writes } = await boot(browser, { pics: 4 });
+  await page.route('**res.cloudinary.com/**', (r) => r.abort());
+  await openLooks(page);
+  const iso = await page.evaluate(() => { const p = (n) => String(n).padStart(2, '0'); const t = new Date(); return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()); });
+  const readDay = () => page.evaluate(() => {
+    const pg = document.getElementById('dl-result-page');
+    const q = (s, r) => (r || pg).querySelector(s);
+    const qa = (s, r) => Array.from((r || pg).querySelectorAll(s));
+    return {
+      visible: !!pg && pg.style.display !== 'none',
+      eyebrow: q('.dlm-eyebrow')?.textContent,
+      title: q('.dlm-title')?.textContent.trim(),
+      titleIsDoor: !!q('button.dyp-title-none'),
+      pen: !!q('.dyp-titlerow .rb-rename-tbtn'),
+      sec: q('.dyp-sec-l')?.textContent, stat: q('.dyp-sec-r')?.textContent,
+      cards: qa('.dyp-card').map((c) => ({
+        ey: q('.dyp-ey > span:first-child', c)?.textContent, when: q('.dyp-when', c)?.textContent || null,
+        name: q('.dyp-name', c)?.textContent, n: q('.dyp-n', c)?.textContent,
+        img: !!q('.dyp-img img', c) || !!q('.dyp-img .rb-lk-mos', c), x: !!q('.dyp-x', c),
+      })),
+      add: q('.dyp-add') ? q('.dyp-add .dyp-add-l').textContent + ' · ' + q('.dyp-add .dyp-add-s').textContent : null,
+      console: !!q('.dlm-console'), switcher: !!q('[onclick*="__dlSetSlot"]'),
+      back: q('.dlm-dayback')?.textContent.trim() || null,
+    };
+  });
+  // Pin lk-1 to today through the shared picker, then open the day.
+  await page.evaluate(async (iso) => {
+    window.__mvWear(iso);
+    await new Promise((r) => setTimeout(r, 200));
+    window.__mvWearPick(iso, 'lk-1');
+    await new Promise((r) => setTimeout(r, 300));
+    window._rbOpenPlannedDay({ source_type: 'look', source_id: 'lk-1', day_date: iso });
+    await new Promise((r) => setTimeout(r, 600));
+  }, iso);
+  const d1 = await readDay();
+  check('day page · opening a day lands on its page: the date, "Name the day", Looks filed today + the count',
+    d1.visible && /^[A-Z][a-z]+day \d+ [A-Z]/.test(d1.eyebrow || '') && d1.title === 'Name the day' && d1.titleIsDoor && !d1.pen
+      && d1.sec === 'Looks filed today' && d1.stat === '1 look · 4 pieces filed' && d1.console === false,
+    JSON.stringify(d1));
+  check('day page · one look, one card: LOOK 1, no moment label, the name, the piece count, her frame, the ✕',
+    d1.cards.length === 1 && d1.cards[0].ey === 'Look 1' && d1.cards[0].when === null && d1.cards[0].name === 'The Thursday one'
+      && d1.cards[0].n === '4 pieces' && d1.cards[0].img && d1.cards[0].x,
+    JSON.stringify(d1.cards));
+  check('day page · + Add a look closes the grid, "another moment in the day"',
+    d1.add === 'Add a look · another moment in the day', d1.add);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + '/day-page-1.png' }).catch(() => {});
+  // Naming the day — one write for every look on it, and the day row keeps it
+  const before = writes.length;
+  const named = await page.evaluate(async () => {
+    window.__rbDayNameEdit();
+    await new Promise((r) => setTimeout(r, 100));
+    const inp = document.getElementById('dyp-name-in');
+    if (!inp) return { inp: false };
+    inp.value = 'Board day';
+    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 900));
+    return { inp: true };
+  });
+  const d2 = await readDay();
+  const nameWrites = writes.slice(before).filter((w) => w.method === 'POST' && /^planned_days/.test(w.url) && Array.isArray(w.body));
+  check('day page · the pencil renames the day in place; the look re-pins carrying the name and a day row keeps it',
+    named.inp && d2.title === 'Board day' && d2.pen && !d2.titleIsDoor
+      && nameWrites.some((w) => w.body[0]?.source_type === 'look' && w.body[0]?.activity === 'Board day')
+      && nameWrites.some((w) => w.body[0]?.source_type === 'day' && w.body[0]?.activity === 'Board day' && w.body[0]?.day_date === iso),
+    JSON.stringify([named, d2.title, d2.pen, nameWrites.map((w) => w.body[0]?.source_type + ':' + w.body[0]?.activity)]));
+  // A second look on the same day — the picker is headed by the day's name
+  const picker = await page.evaluate(async (iso) => {
+    document.querySelector('#dl-result-page .dyp-add').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const ttl = document.getElementById('rb-mv-wear-ttl')?.textContent.trim();
+    window.__mvWearPick(iso, 'lk-2');
+    await new Promise((r) => setTimeout(r, 500));
+    return { ttl, modalGone: !document.getElementById('rb-mv-wear') };
+  }, iso);
+  const d3 = await readDay();
+  check('day page · + Add a look opens the shared picker, headed by the day\'s name; the pick lands as a second card',
+    /^Board day/.test(picker.ttl || '') && picker.modalGone && d3.cards.length === 2 && d3.stat === '2 looks · 7 pieces filed',
+    JSON.stringify([picker, d3.cards.length, d3.stat]));
+  check('day page · two looks read Day / Evening by their place in the day; the second names itself',
+    d3.cards[0].when === 'Day' && d3.cards[1].when === 'Evening' && d3.cards[1].ey === 'Look 2'
+      && d3.cards[1].name === 'The tank one' && d3.cards[1].n === '3 pieces',
+    JSON.stringify(d3.cards));
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + '/day-page-2.png' }).catch(() => {});
+  // A card opens the look: the console under the day's header, a door back, no switcher
+  await page.evaluate(async () => {
+    document.querySelector('#dl-result-page .dyp-card .dyp-open').click();
+    await new Promise((r) => setTimeout(r, 600));
+  });
+  const look = await page.evaluate(() => ({
+    console: !!document.querySelector('#dl-result-page .dlm-console'),
+    saved: !!document.querySelector('#dl-result-page .dlm-console.dlm-saved'),
+    title: document.querySelector('#dl-result-page .dlm-title')?.textContent,
+    wearing: document.querySelector('#dl-result-page .dlm-wearing')?.textContent.replace(/\s+/g, ' '),
+    back: document.querySelector('#dl-result-page .dlm-dayback')?.textContent.trim(),
+    switcher: !!document.querySelector('#dl-result-page [onclick*="__dlSetSlot"]'),
+    grid: !!document.querySelector('#dl-result-page .dyp-grid'),
+  }));
+  check('day page · a card opens the look on its day — the saved view under the day\'s header, no Day/Evening switcher',
+    look.console && look.saved && look.title === 'Board day' && /The Thursday one/.test(look.wearing || '') && look.switcher === false && look.grid === false,
+    JSON.stringify(look));
+  check('day page · the look carries a door back to the day, reading the date',
+    /^‹\s*[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}$/.test(look.back || ''), look.back);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + '/day-look.png' }).catch(() => {});
+  await page.evaluate(async () => {
+    document.querySelector('#dl-result-page .dlm-dayback').click();
+    await new Promise((r) => setTimeout(r, 500));
+  });
+  const d4 = await readDay();
+  check('day page · the door returns to the day, both looks still on it',
+    d4.visible && !d4.console && d4.title === 'Board day' && d4.cards.length === 2, JSON.stringify([d4.title, d4.cards.length, d4.console]));
+  // ✕ takes a pinned look off the day quietly; the day keeps its name
+  const removed = await page.evaluate(async () => {
+    const cards = document.querySelectorAll('#dl-result-page .dyp-card');
+    if (cards.length < 2) return { cards: cards.length, html: (document.querySelector('#dl-result-page .dyp-grid')?.textContent || '').slice(0, 200) };
+    cards[1].querySelector('.dyp-x').click();
+    await new Promise((r) => setTimeout(r, 400));
+    return { confirm: !!document.getElementById('rb-del-modal'), toast: document.body.textContent.includes('taken off') };
+  });
+  const d5 = await readDay();
+  check('day page · ✕ takes the look off the day (no confirm for a pin — it stays in the Lookbook); the day keeps its name',
+    !removed.confirm && removed.toast && d5.cards.length === 1 && d5.cards[0].name === 'The Thursday one' && d5.title === 'Board day' && d5.stat === '1 look · 4 pieces filed',
+    JSON.stringify([removed, d5.cards.map((c) => c.name), d5.title, d5.stat]));
+  check('day page · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
+  await ctx.close();
+}
+{
+  const { ctx, page, errs } = await boot(browser, { width: 390, pics: 4 });
+  await page.route('**res.cloudinary.com/**', (r) => r.abort());
+  await openLooks(page);
+  const m = await page.evaluate(async () => {
+    const p = (n) => String(n).padStart(2, '0'); const t = new Date();
+    const iso = t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
+    window.__mvWear(iso); await new Promise((r) => setTimeout(r, 200));
+    window.__mvWearPick(iso, 'lk-1'); await new Promise((r) => setTimeout(r, 300));
+    window.__mvWear(iso); await new Promise((r) => setTimeout(r, 200));
+    window.__mvWearPick(iso, 'lk-2'); await new Promise((r) => setTimeout(r, 300));
+    window._rbOpenPlannedDay({ source_type: 'look', source_id: 'lk-1', day_date: iso });
+    await new Promise((r) => setTimeout(r, 600));
+    const pg = document.getElementById('dl-result-page');
+    const cards = Array.from(pg.querySelectorAll('.dyp-card')).map((c) => c.getBoundingClientRect());
+    return {
+      cards: cards.length,
+      twoUp: cards.length === 2 && Math.abs(cards[0].top - cards[1].top) < 2 && cards[1].left > cards[0].right,
+      overflow: pg.scrollWidth > pg.clientWidth + 1,
+    };
+  });
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + '/day-page-390.png' }).catch(() => {});
+  check('day page 390px · two cards to a row, no horizontal overflow', m.cards === 2 && m.twoUp && !m.overflow, JSON.stringify(m));
+  check('day page 390px · no page errors', errs.length === 0, errs.join(' | ').slice(0, 240));
+  await ctx.close();
+}
+
 await browser.close();
+
 server.kill();
 
 const failed = results.filter((r) => !r.pass);
